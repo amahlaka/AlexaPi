@@ -16,13 +16,14 @@ import re
 from memcache import Client
 import vlc
 import threading
-import cgi 
+import cgi
 import email
 import optparse
 import getch
 import sys
 import fileinput
 import datetime
+import Queue
 
 import tunein
 import webrtcvad
@@ -32,6 +33,7 @@ from pocketsphinx.pocketsphinx import *
 from sphinxbase.sphinxbase import *
 
 import alexapi.config
+import alexapi.audio as audio
 
 with open(alexapi.config.filename, 'r') as stream:
 	config = yaml.load(stream)
@@ -81,6 +83,9 @@ ps_config.set_string('-logfn', '/dev/null')
 decoder = Decoder(ps_config)
 decoder.start_utt()
 
+# Initialize queue manager
+audioqueuemanager = audio.AudioQueueManager()
+
 #Variables
 p = ""
 nav_token = ""
@@ -93,14 +98,15 @@ start = time.time()
 tunein_parser = tunein.TuneIn(5000)
 vad = webrtcvad.Vad(2)
 currVolume = 100
+queueplaying = False
 
-# constants 
+# constants
 VAD_SAMPLERATE = 16000
 VAD_FRAME_MS = 30
 VAD_PERIOD = (VAD_SAMPLERATE / 1000) * VAD_FRAME_MS
 VAD_SILENCE_TIMEOUT = 1000
 VAD_THROWAWAY_FRAMES = 10
-MAX_RECORDING_LENGTH = 8 
+MAX_RECORDING_LENGTH = 8
 MAX_VOLUME = 100
 MIN_VOLUME = 30
 
@@ -172,7 +178,7 @@ def alexa_speech_recognizer():
 				]
 		r = requests.post(url, headers=headers, files=files)
 	process_response(r)
-	
+
 
 def alexa_getnextitem(nav_token):
 	# https://developer.amazon.com/public/solutions/alexa/alexa-voice-service/rest/audioplayer-getnextitem-request
@@ -190,7 +196,7 @@ def alexa_getnextitem(nav_token):
 		}
 		r = requests.post(url, headers=headers, data=json.dumps(d))
 		process_response(r)
-	
+
 def alexa_playback_progress_report_request(requestType, playerActivity, streamid):
 	# https://developer.amazon.com/public/solutions/alexa/alexa-voice-service/rest/audioplayer-events-requests
 	# streamId                  Specifies the identifier for the current stream.
@@ -208,7 +214,7 @@ def alexa_playback_progress_report_request(requestType, playerActivity, streamid
 			}
 		}
 	}
-	
+
 	if requestType.upper() == "ERROR":
 		# The Playback Error method sends a notification to AVS that the audio player has experienced an issue during playback.
 		url = "https://access-alexa-na.amazon.com/v1/avs/audioplayer/playbackError"
@@ -219,7 +225,7 @@ def alexa_playback_progress_report_request(requestType, playerActivity, streamid
 		# The Playback Idle method sends a notification to AVS that the audio player has reached the end of the playlist.
 		url = "https://access-alexa-na.amazon.com/v1/avs/audioplayer/playbackIdle"
 	elif requestType.upper() ==  "INTERRUPTED":
-		# The Playback Interrupted method sends a notification to AVS that the audio player has been interrupted. 
+		# The Playback Interrupted method sends a notification to AVS that the audio player has been interrupted.
 		# Note: The audio player may have been interrupted by a previous stop Directive.
 		url = "https://access-alexa-na.amazon.com/v1/avs/audioplayer/playbackInterrupted"
 	elif requestType.upper() ==  "PROGRESS_REPORT":
@@ -228,7 +234,7 @@ def alexa_playback_progress_report_request(requestType, playerActivity, streamid
 	elif requestType.upper() ==  "STARTED":
 		# The Playback Started method sends a notification to AVS that the audio player has started playing.
 		url = "https://access-alexa-na.amazon.com/v1/avs/audioplayer/playbackStarted"
-	
+
 	r = requests.post(url, headers=headers, data=json.dumps(d))
 	if r.status_code != 204:
 		print("{}(alexa_playback_progress_report_request Response){} {}".format(bcolors.WARNING, bcolors.ENDC, r))
@@ -243,7 +249,7 @@ def process_response(r):
 	streamid = ""
 	if r.status_code == 200:
 		data = "Content-Type: " + r.headers['content-type'] +'\r\n\r\n'+ r.content
-		msg = email.message_from_string(data)		
+		msg = email.message_from_string(data)
 		for payload in msg.get_payload():
 			if payload.get_content_type() == "application/json":
 				j =  json.loads(payload.get_payload())
@@ -287,7 +293,7 @@ def process_response(r):
 								content = "file://" + tmp_path + stream['streamUrl'].lstrip("cid:")+".mp3"
 							else:
 								content = stream['streamUrl']
-							pThread = threading.Thread(target=play_audio, args=(content, stream['offsetInMilliseconds']))
+							pThread = threading.Thread(target=queue_audio, args=(content, stream['offsetInMilliseconds']))
 							pThread.start()
 				elif directive['namespace'] == "Speaker":
 					# speaker control such as volume
@@ -305,7 +311,7 @@ def process_response(r):
 							currVolume = MIN_VOLUME
 
 						if debug: print("new volume = {}".format(currVolume))
-						
+
 		elif 'audioItem' in j['messageBody']: 			#Additional Audio Iten
 			nav_token = j['messageBody']['navigationToken']
 			for stream in j['messageBody']['audioItem']['streams']:
@@ -315,9 +321,9 @@ def process_response(r):
 					content = "file://" + tmp_path + stream['streamUrl'].lstrip("cid:")+".mp3"
 				else:
 					content = stream['streamUrl']
-				pThread = threading.Thread(target=play_audio, args=(content, stream['offsetInMilliseconds']))
+				pThread = threading.Thread(target=queue_audio, args=(content, stream['offsetInMilliseconds']))
 				pThread.start()
-			
+
 		return
 	elif r.status_code == 204:
 		GPIO.output(config['raspberrypi']['rec_light'], GPIO.LOW)
@@ -337,6 +343,24 @@ def process_response(r):
 			time.sleep(.2)
 			GPIO.output(config['raspberrypi']['lights'], GPIO.LOW)
 
+
+def queue_audio(file, offset=0, overRideVolume=0):
+	global nav_token, streamurl, streamid, currVolume, queueplaying, toggleMicVol
+
+	audioqueuemanager.addItem(file)
+
+	while True:
+		if queueplaying is False:
+		    queueplaying = True
+		    toggleMicVol = True
+		    play_audio(audioqueuemanager.getNextItem())
+		    queueplaying = False
+
+		if not audioqueuemanager.getItemCount() > 0:
+			toggleMicVol = True
+			break
+
+		time.sleep(.1)
 
 
 def play_audio(file, offset=0, overRideVolume=0):
@@ -359,19 +383,19 @@ def play_audio(file, offset=0, overRideVolume=0):
 	else:
 		p.audio_set_volume(overRideVolume)
 
-	
+
 	p.play()
 	while audioplaying:
 		continue
 	GPIO.output(config['raspberrypi']['plb_light'], GPIO.LOW)
 
-		
+
 def tuneinplaylist(url):
 	global tunein_parser
 	if (debug): print("TUNE IN URL = {}".format(url))
 	req = requests.get(url)
 	lines = req.content.split('\n')
-	
+
 	nurl = tunein_parser.parse_stream_url(lines[0])
 	if (len(nurl) != 0):
 		return nurl[0]
@@ -441,7 +465,7 @@ def detect_button(channel):
         if debug: print("{}Recording Finished.{}".format(bcolors.OKBLUE, bcolors.ENDC))
         button_pressed = False
         time.sleep(.5) # more time for the button to settle down
-		
+
 def silence_listener(throwaway_frames):
 		global button_pressed
 		# Reenable reading microphone raw data
@@ -467,7 +491,7 @@ def silence_listener(throwaway_frames):
 			if l:
 				audio += data
 				isSpeech = vad.is_speech(data, VAD_SAMPLERATE)
-	
+
 		# now do VAD
 		while button_pressed == True or ((thresholdSilenceMet == False) and ((time.time() - start) < MAX_RECORDING_LENGTH)):
 			l, data = inp.read()
@@ -485,7 +509,7 @@ def silence_listener(throwaway_frames):
 						numSilenceRuns = numSilenceRuns + 1
 						#print "1"
 
-			# only count silence runs after the first one 
+			# only count silence runs after the first one
 			# (allow user to speak for total of max recording length if they haven't said anything yet)
 			if (numSilenceRuns != 0) and ((silenceRun * VAD_FRAME_MS) > VAD_SILENCE_TIMEOUT):
 				thresholdSilenceMet = True
@@ -500,14 +524,14 @@ def silence_listener(throwaway_frames):
 		rf.write(audio)
 		rf.close()
 		inp.close()
-		
+
 
 def start():
 	global audioplaying, p, vad, button_pressed
 	GPIO.add_event_detect(config['raspberrypi']['button'], GPIO.FALLING, callback=detect_button, bouncetime=100) # threaded detection of button press
 	while True:
 		record_audio = False
-		
+
 		# Enable reading microphone raw data
 		inp = alsaaudio.PCM(alsaaudio.PCM_CAPTURE, alsaaudio.PCM_NORMAL, config['sound']['device'])
 		inp.setchannels(1)
@@ -559,7 +583,7 @@ def start():
 
 		if debug: print "Debug: Sending audio to be processed"
 		alexa_speech_recognizer()
-		
+
 		# Now that request is handled restart audio decoding
 		decoder.end_utt()
 		decoder.start_utt()
