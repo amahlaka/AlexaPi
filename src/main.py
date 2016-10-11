@@ -23,6 +23,7 @@ import getch
 import sys
 import fileinput
 import datetime
+import Queue
 
 import tunein
 import webrtcvad
@@ -32,6 +33,7 @@ from pocketsphinx.pocketsphinx import *
 from sphinxbase.sphinxbase import *
 
 import alexapi.config
+import alexapi.audio as audio
 
 with open(alexapi.config.filename, 'r') as stream:
 	config = yaml.load(stream)
@@ -81,6 +83,9 @@ ps_config.set_string('-logfn', '/dev/null')
 decoder = Decoder(ps_config)
 decoder.start_utt()
 
+# Initialize queue manager
+audioqueuemanager = audio.AudioQueueManager()
+
 #Variables
 p = ""
 nav_token = ""
@@ -93,6 +98,7 @@ start = time.time()
 tunein_parser = tunein.TuneIn(5000)
 vad = webrtcvad.Vad(2)
 currVolume = 100
+queueplaying = False
 
 # constants 
 VAD_SAMPLERATE = 16000
@@ -287,7 +293,7 @@ def process_response(r):
 								content = "file://" + tmp_path + stream['streamUrl'].lstrip("cid:")+".mp3"
 							else:
 								content = stream['streamUrl']
-							pThread = threading.Thread(target=play_audio, args=(content, stream['offsetInMilliseconds']))
+							pThread = threading.Thread(target=queue_audio, args=(content, stream['offsetInMilliseconds']))
 							pThread.start()
 				elif directive['namespace'] == "Speaker":
 					# speaker control such as volume
@@ -315,7 +321,7 @@ def process_response(r):
 					content = "file://" + tmp_path + stream['streamUrl'].lstrip("cid:")+".mp3"
 				else:
 					content = stream['streamUrl']
-				pThread = threading.Thread(target=play_audio, args=(content, stream['offsetInMilliseconds']))
+				pThread = threading.Thread(target=queue_audio, args=(content, stream['offsetInMilliseconds']))
 				pThread.start()
 			
 		return
@@ -337,6 +343,24 @@ def process_response(r):
 			time.sleep(.2)
 			GPIO.output(config['raspberrypi']['lights'], GPIO.LOW)
 
+
+def queue_audio(file, offset=0, overRideVolume=0):
+	global nav_token, streamurl, streamid, currVolume, queueplaying, toggleMicVol
+
+	audioqueuemanager.addItem(file)
+
+	while True:
+		if queueplaying is False:
+		    queueplaying = True
+		    toggleMicVol = True
+		    play_audio(audioqueuemanager.getNextItem())
+		    queueplaying = False
+
+		if not audioqueuemanager.getItemCount() > 0:
+			toggleMicVol = True
+			break
+
+		time.sleep(.1)
 
 
 def play_audio(file, offset=0, overRideVolume=0):
