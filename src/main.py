@@ -13,7 +13,7 @@ import json
 import re
 from memcache import Client
 import threading
-import cgi 
+import cgi
 import email
 import getch
 import sys
@@ -62,13 +62,13 @@ start = time.time()
 tunein_parser = tunein.TuneIn(5000)
 vad = webrtcvad.Vad(2)
 
-# constants 
+# constants
 VAD_SAMPLERATE = 16000
 VAD_FRAME_MS = 30
 VAD_PERIOD = (VAD_SAMPLERATE / 1000) * VAD_FRAME_MS
 VAD_SILENCE_TIMEOUT = 1000
 VAD_THROWAWAY_FRAMES = 10
-MAX_RECORDING_LENGTH = 8 
+MAX_RECORDING_LENGTH = 8
 MAX_VOLUME = 100
 MIN_VOLUME = 30
 
@@ -166,7 +166,7 @@ def alexa_playback_progress_report_request(requestType, playerActivity, streamid
 			}
 		}
 	}
-	
+
 	if requestType.upper() == "ERROR":
 		# The Playback Error method sends a notification to AVS that the audio player has experienced an issue during playback.
 		url = "https://access-alexa-na.amazon.com/v1/avs/audioplayer/playbackError"
@@ -177,7 +177,7 @@ def alexa_playback_progress_report_request(requestType, playerActivity, streamid
 		# The Playback Idle method sends a notification to AVS that the audio player has reached the end of the playlist.
 		url = "https://access-alexa-na.amazon.com/v1/avs/audioplayer/playbackIdle"
 	elif requestType.upper() ==  "INTERRUPTED":
-		# The Playback Interrupted method sends a notification to AVS that the audio player has been interrupted. 
+		# The Playback Interrupted method sends a notification to AVS that the audio player has been interrupted.
 		# Note: The audio player may have been interrupted by a previous stop Directive.
 		url = "https://access-alexa-na.amazon.com/v1/avs/audioplayer/playbackInterrupted"
 	elif requestType.upper() ==  "PROGRESS_REPORT":
@@ -186,7 +186,7 @@ def alexa_playback_progress_report_request(requestType, playerActivity, streamid
 	elif requestType.upper() ==  "STARTED":
 		# The Playback Started method sends a notification to AVS that the audio player has started playing.
 		url = "https://access-alexa-na.amazon.com/v1/avs/audioplayer/playbackStarted"
-	
+
 	r = requests.post(url, headers=headers, data=json.dumps(d))
 	if r.status_code != 204:
 		print("{}(alexa_playback_progress_report_request Response){} {}".format(bcolors.WARNING, bcolors.ENDC, r))
@@ -200,7 +200,7 @@ def process_response(r):
 	pstate.streamid = ""
 	if r.status_code == 200:
 		data = "Content-Type: " + r.headers['content-type'] +'\r\n\r\n'+ r.content
-		msg = email.message_from_string(data)		
+		msg = email.message_from_string(data)
 		for payload in msg.get_payload():
 			if payload.get_content_type() == "application/json":
 				j =  json.loads(payload.get_payload())
@@ -276,7 +276,7 @@ def process_response(r):
 					content = stream['streamUrl']
 				pThread = threading.Thread(target=player.play_media, args=(content, stream['offsetInMilliseconds']))
 				pThread.start()
-			
+
 		return
 	elif r.status_code == 204:
 		GPIO.output(config['raspberrypi']['rec_light'], GPIO.LOW)
@@ -303,7 +303,7 @@ def tuneinplaylist(url):
 	if (debug): print("TUNE IN URL = {}".format(url))
 	req = requests.get(url)
 	lines = req.content.split('\n')
-	
+
 	nurl = tunein_parser.parse_stream_url(lines[0])
 	if (len(nurl) != 0):
 		return nurl[0]
@@ -327,7 +327,7 @@ def detect_button(channel):
         if debug: print("{}Recording Finished.{}".format(bcolors.OKBLUE, bcolors.ENDC))
         button_pressed = False
         time.sleep(.5) # more time for the button to settle down
-		
+
 def silence_listener(throwaway_frames):
 		global button_pressed
 		# Reenable reading microphone raw data
@@ -353,7 +353,7 @@ def silence_listener(throwaway_frames):
 			if l:
 				audio += data
 				isSpeech = vad.is_speech(data, VAD_SAMPLERATE)
-	
+
 		# now do VAD
 		while button_pressed == True or ((thresholdSilenceMet == False) and ((time.time() - start) < MAX_RECORDING_LENGTH)):
 			l, data = inp.read()
@@ -371,7 +371,7 @@ def silence_listener(throwaway_frames):
 						numSilenceRuns = numSilenceRuns + 1
 						#print "1"
 
-			# only count silence runs after the first one 
+			# only count silence runs after the first one
 			# (allow user to speak for total of max recording length if they haven't said anything yet)
 			if (numSilenceRuns != 0) and ((silenceRun * VAD_FRAME_MS) > VAD_SILENCE_TIMEOUT):
 				thresholdSilenceMet = True
@@ -386,14 +386,14 @@ def silence_listener(throwaway_frames):
 		rf.write(audio)
 		rf.close()
 		inp.close()
-		
+
 
 def start():
 	global vad, button_pressed
 	GPIO.add_event_detect(config['raspberrypi']['button'], GPIO.FALLING, callback=detect_button, bouncetime=100) # threaded detection of button press
 	while True:
 		record_audio = False
-		
+
 		# Enable reading microphone raw data
 		inp = alsaaudio.PCM(alsaaudio.PCM_CAPTURE, alsaaudio.PCM_NORMAL, config['sound']['device'])
 		inp.setchannels(1)
@@ -453,7 +453,7 @@ def start():
 
 		if debug: print "Debug: Sending audio to be processed"
 		alexa_speech_recognizer()
-		
+
 		# Now that request is handled restart audio decoding
 		decoder.end_utt()
 
