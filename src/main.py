@@ -13,7 +13,7 @@ import json
 import re
 from memcache import Client
 import threading
-import cgi 
+import cgi
 import email
 import getch
 import sys
@@ -55,22 +55,20 @@ ps_config.set_string('-logfn', '/dev/null')
 
 # Process audio chunk by chunk. On keyword detected perform action and restart search
 decoder = Decoder(ps_config)
-decoder.start_utt()
 
 #Variables
-position = 0
 button_pressed = False
 start = time.time()
 tunein_parser = tunein.TuneIn(5000)
 vad = webrtcvad.Vad(2)
 
-# constants 
+# constants
 VAD_SAMPLERATE = 16000
 VAD_FRAME_MS = 30
 VAD_PERIOD = (VAD_SAMPLERATE / 1000) * VAD_FRAME_MS
 VAD_SILENCE_TIMEOUT = 1000
 VAD_THROWAWAY_FRAMES = 10
-MAX_RECORDING_LENGTH = 8 
+MAX_RECORDING_LENGTH = 8
 MAX_VOLUME = 100
 MIN_VOLUME = 30
 
@@ -136,20 +134,20 @@ def alexa_speech_recognizer():
 def alexa_getnextitem(nav_token):
 	# https://developer.amazon.com/public/solutions/alexa/alexa-voice-service/rest/audioplayer-getnextitem-request
 	time.sleep(0.5)
-        if pstate.audioplaying == False:
-		if debug: print("{}Sending GetNextItem Request...{}".format(bcolors.OKBLUE, bcolors.ENDC))
-		# GPIO.output(config['raspberrypi']['plb_light'], GPIO.HIGH)
-		url = 'https://access-alexa-na.amazon.com/v1/avs/audioplayer/getNextItem'
-		headers = {'Authorization' : 'Bearer %s' % gettoken(), 'content-type' : 'application/json; charset=UTF-8'}
-		d = {
-			"messageHeader": {},
-			"messageBody": {
-				"navigationToken": nav_token
-			}
+        #if not player.is_avr_playing():
+	if debug: print("{}Sending GetNextItem Request...{}".format(bcolors.OKBLUE, bcolors.ENDC))
+	# GPIO.output(config['raspberrypi']['plb_light'], GPIO.HIGH)
+	url = 'https://access-alexa-na.amazon.com/v1/avs/audioplayer/getNextItem'
+	headers = {'Authorization' : 'Bearer %s' % gettoken(), 'content-type' : 'application/json; charset=UTF-8'}
+	d = {
+		"messageHeader": {},
+		"messageBody": {
+			"navigationToken": nav_token
 		}
-		r = requests.post(url, headers=headers, data=json.dumps(d))
-		process_response(r)
-	
+	}
+	r = requests.post(url, headers=headers, data=json.dumps(d))
+	process_response(r)
+
 def alexa_playback_progress_report_request(requestType, playerActivity, streamid):
 	# https://developer.amazon.com/public/solutions/alexa/alexa-voice-service/rest/audioplayer-events-requests
 	# streamId                  Specifies the identifier for the current stream.
@@ -167,7 +165,7 @@ def alexa_playback_progress_report_request(requestType, playerActivity, streamid
 			}
 		}
 	}
-	
+
 	if requestType.upper() == "ERROR":
 		# The Playback Error method sends a notification to AVS that the audio player has experienced an issue during playback.
 		url = "https://access-alexa-na.amazon.com/v1/avs/audioplayer/playbackError"
@@ -178,7 +176,7 @@ def alexa_playback_progress_report_request(requestType, playerActivity, streamid
 		# The Playback Idle method sends a notification to AVS that the audio player has reached the end of the playlist.
 		url = "https://access-alexa-na.amazon.com/v1/avs/audioplayer/playbackIdle"
 	elif requestType.upper() ==  "INTERRUPTED":
-		# The Playback Interrupted method sends a notification to AVS that the audio player has been interrupted. 
+		# The Playback Interrupted method sends a notification to AVS that the audio player has been interrupted.
 		# Note: The audio player may have been interrupted by a previous stop Directive.
 		url = "https://access-alexa-na.amazon.com/v1/avs/audioplayer/playbackInterrupted"
 	elif requestType.upper() ==  "PROGRESS_REPORT":
@@ -187,7 +185,7 @@ def alexa_playback_progress_report_request(requestType, playerActivity, streamid
 	elif requestType.upper() ==  "STARTED":
 		# The Playback Started method sends a notification to AVS that the audio player has started playing.
 		url = "https://access-alexa-na.amazon.com/v1/avs/audioplayer/playbackStarted"
-	
+
 	r = requests.post(url, headers=headers, data=json.dumps(d))
 	if r.status_code != 204:
 		print("{}(alexa_playback_progress_report_request Response){} {}".format(bcolors.WARNING, bcolors.ENDC, r))
@@ -201,7 +199,7 @@ def process_response(r):
 	pstate.streamid = ""
 	if r.status_code == 200:
 		data = "Content-Type: " + r.headers['content-type'] +'\r\n\r\n'+ r.content
-		msg = email.message_from_string(data)		
+		msg = email.message_from_string(data)
 		for payload in msg.get_payload():
 			if payload.get_content_type() == "application/json":
 				j =  json.loads(payload.get_payload())
@@ -222,12 +220,12 @@ def process_response(r):
 				if directive['namespace'] == 'SpeechSynthesizer':
 					if directive['name'] == 'speak':
 						GPIO.output(config['raspberrypi']['rec_light'], GPIO.LOW)
-						player.play("file://" + tmp_path + directive['payload']['audioContent'].lstrip("cid:")+".mp3")
+						player.play_avr("file://" + tmp_path + directive['payload']['audioContent'].lstrip("cid:")+".mp3")
 					for directive in j['messageBody']['directives']: # if Alexa expects a response
 						if directive['namespace'] == 'SpeechRecognizer': # this is included in the same string as above if a response was expected
 							if directive['name'] == 'listen':
 								if debug: print("{}Further Input Expected, timeout in: {} {}ms".format(bcolors.OKBLUE, bcolors.ENDC, directive['payload']['timeoutIntervalInMillis']))
-								player.play(resources_path+'beep.wav', 0, 100)
+								player.play_avr(resources_path+'beep.wav', 0, 100)
 								timeout = directive['payload']['timeoutIntervalInMillis']/116
 								# listen until the timeout from Alexa
 								silence_listener(timeout)
@@ -245,10 +243,10 @@ def process_response(r):
 								content = "file://" + tmp_path + stream['streamUrl'].lstrip("cid:")+".mp3"
 							else:
 								content = stream['streamUrl']
-							pThread = threading.Thread(target=player.queue_and_play, args=(content, stream['offsetInMilliseconds']))
+							pThread = threading.Thread(target=player.play_media, args=(content, stream['offsetInMilliseconds']))
 							pThread.start()
 					if directive['name'] == 'stop':
-							pThread = threading.Thread(target=player.stop_queue)
+							pThread = threading.Thread(target=player.stop_media_player)
 							pThread.start()
 				elif directive['namespace'] == "Speaker":
 					# speaker control such as volume
@@ -264,7 +262,6 @@ def process_response(r):
 							pstate.currVolume = MAX_VOLUME
 						elif (pstate.currVolume < MIN_VOLUME):
 							pstate.currVolume = MIN_VOLUME
-
 						if debug: print("new volume = {}".format(pstate.currVolume))
 						
 		elif 'audioItem' in j['messageBody']: 			#Additional Audio Iten
@@ -276,9 +273,9 @@ def process_response(r):
 					content = "file://" + tmp_path + stream['streamUrl'].lstrip("cid:")+".mp3"
 				else:
 					content = stream['streamUrl']
-				pThread = threading.Thread(target=player.queue_and_play, args=(content, stream['offsetInMilliseconds']))
+				pThread = threading.Thread(target=player.play_media, args=(content, stream['offsetInMilliseconds']))
 				pThread.start()
-			
+
 		return
 	elif r.status_code == 204:
 		GPIO.output(config['raspberrypi']['rec_light'], GPIO.LOW)
@@ -287,7 +284,7 @@ def process_response(r):
 			GPIO.output(config['raspberrypi']['plb_light'], GPIO.HIGH)
 			time.sleep(.2)
 			GPIO.output(config['raspberrypi']['plb_light'], GPIO.LOW)
-		player.resume_queue()
+		player.resume_media_player()
 		if debug: print("{}Request Response is null {}(This is OKAY!){}".format(bcolors.OKBLUE, bcolors.OKGREEN, bcolors.ENDC))
 	else:
 		print("{}(process_response Error){} Status Code: {}".format(bcolors.WARNING, bcolors.ENDC, r.status_code))
@@ -306,7 +303,7 @@ def tuneinplaylist(url):
 	if (debug): print("TUNE IN URL = {}".format(url))
 	req = requests.get(url)
 	lines = req.content.split('\n')
-	
+
 	nurl = tunein_parser.parse_stream_url(lines[0])
 	if (len(nurl) != 0):
 		return nurl[0]
@@ -324,13 +321,13 @@ def detect_button(channel):
                 button_pressed = True
                 time.sleep(.1)
                 if time.time() - buttonPress > 10: # pressing button for 10 seconds triggers a system halt
-                	player.play(resources_path+'alexahalt.mp3')
+                	player.play_avr(resources_path+'alexahalt.mp3')
                 	if debug: print("{} -- 10 second putton press.  Shutting down. -- {}".format(bcolors.WARNING, bcolors.ENDC))
                 	os.system("halt")
         if debug: print("{}Recording Finished.{}".format(bcolors.OKBLUE, bcolors.ENDC))
         button_pressed = False
         time.sleep(.5) # more time for the button to settle down
-		
+
 def silence_listener(throwaway_frames):
 		global button_pressed
 		# Reenable reading microphone raw data
@@ -356,7 +353,7 @@ def silence_listener(throwaway_frames):
 			if l:
 				audio += data
 				isSpeech = vad.is_speech(data, VAD_SAMPLERATE)
-	
+
 		# now do VAD
 		while button_pressed == True or ((thresholdSilenceMet == False) and ((time.time() - start) < MAX_RECORDING_LENGTH)):
 			l, data = inp.read()
@@ -374,7 +371,7 @@ def silence_listener(throwaway_frames):
 						numSilenceRuns = numSilenceRuns + 1
 						#print "1"
 
-			# only count silence runs after the first one 
+			# only count silence runs after the first one
 			# (allow user to speak for total of max recording length if they haven't said anything yet)
 			if (numSilenceRuns != 0) and ((silenceRun * VAD_FRAME_MS) > VAD_SILENCE_TIMEOUT):
 				thresholdSilenceMet = True
@@ -382,22 +379,21 @@ def silence_listener(throwaway_frames):
 
 		if debug: print ("Debug: End recording")
 
-		# if debug: player.play(resources_path+'beep.wav', 0, 100)
+		# if debug: player.play_avr(resources_path+'beep.wav', 0, 100)
 
 		GPIO.output(config['raspberrypi']['rec_light'], GPIO.LOW)
 		rf = open(tmp_path + 'recording.wav', 'w')
 		rf.write(audio)
 		rf.close()
 		inp.close()
-		
+
 
 def start():
-	#global audioplaying, p, vad, button_pressed
 	global vad, button_pressed
 	GPIO.add_event_detect(config['raspberrypi']['button'], GPIO.FALLING, callback=detect_button, bouncetime=100) # threaded detection of button press
 	while True:
 		record_audio = False
-		
+
 		# Enable reading microphone raw data
 		inp = alsaaudio.PCM(alsaaudio.PCM_CAPTURE, alsaaudio.PCM_NORMAL, config['sound']['device'])
 		inp.setchannels(1)
@@ -405,6 +401,8 @@ def start():
 		inp.setformat(alsaaudio.PCM_FORMAT_S16_LE)
 		inp.setperiodsize(1024)
 		start = time.time()
+
+		decoder.start_utt()
 
                 while record_audio == False:
 
@@ -419,15 +417,19 @@ def start():
 
 			# if trigger word was said
 			if decoder.hyp() != None:
-				if pstate.audioplaying or player.is_queue_playing():
-					player.stop_queue()
-					time.sleep(1) #add a 1 sec pause before audio prompt
+				if player.is_avr_playing():
+					player.stop_avr()
+					time.sleep(.5) #add delay before audio prompt
+
+				if player.is_media_playing():
+					player.stop_media_player()
+					time.sleep(.5) #add delay before audio prompt
 
 				start = time.time()
 				record_audio = True
-				player.play(resources_path+'alexayes.mp3', 0)
+				player.play_avr(resources_path+'alexayes.mp3', 0)
 			elif button_pressed:
-				if pstate.audioplaying or player.is_queue_playing(): player.stop_queue()
+				if player.is_avr_playing or player.is_media_playing(): player.stop_media_player()
 				record_audio = True
 
 		# do the following things if either the button has been pressed or the trigger word has been said
@@ -451,10 +453,9 @@ def start():
 
 		if debug: print "Debug: Sending audio to be processed"
 		alexa_speech_recognizer()
-		
+
 		# Now that request is handled restart audio decoding
 		decoder.end_utt()
-		decoder.start_utt()
 
 
 def cleanup(signal, frame):
@@ -491,7 +492,7 @@ def setup():
 		GPIO.output(config['raspberrypi']['plb_light'], GPIO.HIGH)
 		time.sleep(.1)
 		GPIO.output(config['raspberrypi']['plb_light'], GPIO.LOW)
-	if (silent == False): player.play(resources_path+"hello.mp3")
+	if (silent == False): player.play_avr(resources_path+"hello.mp3")
 
 
 if __name__ == "__main__":
