@@ -11,14 +11,114 @@ alexa_playback_progress_report_request = None
 alexa_getnextitem = None
 tuneinplaylist = None
 
-queueplaying = False
-queuepaused = False
+avr_playing = False
+media_playing = False
+media_paused = False
 
-class QueueManager(object):
-	"""
-	Build a queue of audio file for play sequencially
-	"""
-	q = deque()
+class AlexaVoiceResponsePlayer(object):
+	instance = None
+	player = None
+
+
+	def __init__(self):
+		self.instance = vlc.Instance('--aout=alsa') # , '--alsa-audio-device=mono', '--file-logging', '--logfile=vlc-log.txt')
+
+
+	def play(self, file, overRideVolume=0):
+		global avr_playing
+		if debug: print("{}Alexa Voice Response_Player Request for:{} {}".format(bcolors.OKBLUE, bcolors.ENDC, file))
+		GPIO.output(config['raspberrypi']['plb_light'], GPIO.HIGH)
+
+		self.player = self.instance.media_player_new()
+		media = self.instance.media_new(file)
+		self.player.set_media(media)
+
+		events = media.event_manager()
+		events.event_attach(vlc.EventType.MediaStateChanged, self.avrp_callback, self.player)
+
+		if (overRideVolume == 0):
+			self.player.audio_set_volume(pstate.currVolume)
+		else:
+			self.player.audio_set_volume(overRideVolume)
+
+		self.player.play()
+		time.sleep(.1) # Allow time for state_callback to run
+
+		while avr_playing:
+			time.sleep(.1) # Prevent 100% CPU untilzation
+			continue
+
+		GPIO.output(config['raspberrypi']['plb_light'], GPIO.LOW)
+
+
+	def stop(self):
+		self.player.stop()
+
+
+	def is_playing(self):
+		global avr_playing
+		return avr_playing
+
+
+	def avrp_callback(self, event, player):
+		global avr_playing, alexa_playback_progress_report_request, alexa_getnextitem
+
+		state = player.get_state()
+
+		#0: 'NothingSpecial'
+		#1: 'Opening'
+		#2: 'Buffering'
+		#3: 'Playing'
+		#4: 'Paused'
+		#5: 'Stopped'
+		#6: 'Ended'
+		#7: 'Error'
+
+		if debug: print("{}Alexa Repsonse Player State:{} {}".format(bcolors.OKGREEN, bcolors.ENDC, state))
+		if state == 3:		#Playing
+			avr_playing = True
+			if pstate.streamid != "":
+				rThread = threading.Thread(target=alexa_playback_progress_report_request, args=("STARTED", "PLAYING", pstate.streamid))
+				rThread.start()
+
+		elif state == 5:	#Stopped
+			avr_playing = False
+			if pstate.streamid != "":
+				rThread = threading.Thread(target=alexa_playback_progress_report_request, args=("INTERRUPTED", "IDLE", pstate.streamid))
+				rThread.start()
+			pstate.streamurl = ""
+			pstate.streamid = ""
+			pstate.nav_token = ""
+
+		elif state == 6:	#Ended
+			avr_playing = False
+			if pstate.streamid != "":
+				rThread = threading.Thread(target=alexa_playback_progress_report_request, args=("FINISHED", "IDLE", pstate.streamid))
+				rThread.start()
+				pstate.streamid = ""
+
+			if pstate.streamurl != "":
+				pThread = threading.Thread(target=play, args=(pstate.streamurl,))
+				pThread.start()
+				pstate.streamurl = ""
+
+			#elif pstate.nav_token != "":
+			#	gThread = threading.Thread(target=alexa_getnextitem, args=(pstate.nav_token,))
+			#	gThread.start()
+
+		elif state == 7:
+			avr_playing = False
+			if pstate.streamid != "":
+				rThread = threading.Thread(target=alexa_playback_progress_report_request, args=("ERROR", "IDLE", pstate.streamid))
+				rThread.start()
+
+			pstate.streamurl = ""
+			pstate.streamid = ""
+			pstate.nav_token = ""
+
+
+class MediaPlayer(object):
+	q = deque() #A Thread safe queue used to play audio files play sequencially (FIFO)
 
 	instance = None
 	player = None
@@ -29,6 +129,8 @@ class QueueManager(object):
 
 
 	def addItem(self, item):
+		global tuneinplaylist
+
 		if (item.find('radiotime.com') != -1):
 			item = tuneinplaylist(item)
 
@@ -53,72 +155,80 @@ class QueueManager(object):
 		return sum(1 for i in self.q)
 
 
-	def queue_and_play(self, file, offset, overRideVolume):
-		global queueplaying, queuepaused
+	def queue_and_play(self, file, offset=0, overRideVolume=0):
+		global media_playing, media_paused
 		#TODO: add volumue override
 
-		self.addItem(file)
+		if file:
+			self.addItem(file)
 
 		while True:
-			if queueplaying is False and queuepaused is False:
-				queueplaying = True
-				queuepaused = False
+			if media_playing is False and media_paused is False:
+				media_paused = False
+
+				if self.getItemCount() == 0: # No more items in queue. Quit loop
+					#TODO: Do stuff
+					break
+
+				media_playing = True
 
 				self.player = self.instance.media_player_new()
 				media = self.instance.media_new(self.getNextItem())
 				self.player.set_media(media)
 				events = media.event_manager()
-				events.event_attach(vlc.EventType.MediaStateChanged, self.queue_callback, self.player)
+				events.event_attach(vlc.EventType.MediaStateChanged, self.media_player_callback, self.player)
+
+				if (overRideVolume == 0):
+					self.player.audio_set_volume(pstate.currVolume)
+				else:
+					self.player.audio_set_volume(overRideVolume)
 
 				if debug: print "{}Queue playing:{} {}".format(bcolors.OKBLUE, bcolors.ENDC, self.getCurrentItem())
 				self.player.play()
 				time.sleep(.1) # Allow time for state_callback to run
 
 
-				# TODO: Probably need queue_callback state
-				while queueplaying:
+				while media_playing:
 					time.sleep(.5) # Prevent 100% CPU untilzation
 					continue
 
 				#TODO: Do I still need this? 
-				#queueplaying = False
-
-			if self.getItemCount() == 0: # No more items in queue. Quit loop
-				#TODO: Do stuff
-				break
+				#media_playing = False
 
 			time.sleep(1) # Prevent 100% CPU untilzation
 
 
 	def stop(self):
-		global queueplaying, queuepaused
-		queueplaying = False
-		queuepaused = False
 		self.q.clear()
 		self.player.stop()
 
+	def resume(self):
+		queue_and_play(self)
 
 	def is_playing(self):
-		global queueplaying
-		print "******** queueplaying: {}".format(queueplaying)
-		return queueplaying
+		global media_playing
+		return media_playing
 
 
-	def queue_callback(self, event, player):
-		global queueplaying
+	def media_player_callback(self, event, player):
+		global media_playing, alexa_playback_progress_report_request, alexa_getnextitem
 
 		state = player.get_state()
 
-		if debug: print("{}Queue Player State:{} {}".format(bcolors.OKGREEN, bcolors.ENDC, state))
+		if debug: print("{}Media Player State:{} {}".format(bcolors.OKGREEN, bcolors.ENDC, state))
 		if state == 3:		#Playing
-			queueplaying = True
+			media_playing = True
+			media_paused = False
+
+		elif state == 4:	#Paused
+			media_playing = False
+			media_paused = True
 
 		elif state == 5:	#Stopped
-			queueplaying = False
+			media_playing = False
 
 		elif state == 6:	#Ended
-			queueplaying = False
-			pstate.audioplaying = False
+			media_playing = False
 			if pstate.streamid != "":
 				rThread = threading.Thread(target=alexa_playback_progress_report_request, args=("FINISHED", "IDLE", pstate.streamid))
 				rThread.start()
@@ -133,134 +243,60 @@ class QueueManager(object):
 				gThread = threading.Thread(target=alexa_getnextitem, args=(pstate.nav_token,))
 				gThread.start()
 
-
 		elif state == 7:	#Error
-			queueplaying = False
+			media_playing = False
 
 
-# Initialize queue manager
-queue_manager = QueueManager()
+# Initialize players
+alexa_voice_response_player = AlexaVoiceResponsePlayer()
+media_player = MediaPlayer()
 
 
-def setup(playback_progress_report_request, getnextitem, tplaylist):
+"""
+Setup
+"""
+def setup(playback_progress_report_request, getnextitem, tplaylist):	#TODO:I'm sure there is a better way
 	global alexa_playback_progress_report_request, alexa_getnextitem, tuneinplaylist
 
 	tuneinplaylist = tplaylist
 	alexa_playback_progress_report_request=playback_progress_report_request
 	alexa_getnextitem = getnextitem
 
+"""
+Audio Player Methods
+"""
+def play_media(file, offset=0, overRideVolume=0):
+	media_player.queue_and_play(file, offset, overRideVolume)
 
-def queue_and_play(file, offset=0, overRideVolume=0):
-	queue_manager.queue_and_play(file, offset, overRideVolume)
+def resume_media_player():
+	media_player.resume()
 
-def resume_queue():
-	queue_manager.resume()
-
-def pause_queue():
-	queue_manager.pause()
-
-
-def stop_queue():
-	queue_manager.stop()
-
-def is_queue_playing():
-	return queue_manager.is_playing()
+def pause_media_player():
+	media_player.pause()
 
 
-def is_queue_paused():
-	return queue_manager.is_paused()
+def stop_media_player():
+	media_player.stop()
 
 
-def play(file, offset=0, overRideVolume=0):
-	global player
-
-	if (file.find('radiotime.com') != -1):
-		file = tuneinplaylist(file)
-
-	if debug: print("{}Play_Audio Request for:{} {}".format(bcolors.OKBLUE, bcolors.ENDC, file))
-	GPIO.output(config['raspberrypi']['plb_light'], GPIO.HIGH)
-
-	instance = vlc.Instance('--aout=alsa') # , '--alsa-audio-device=mono', '--file-logging', '--logfile=vlc-log.txt')
-	player = instance.media_player_new()
-	media = instance.media_new(file)
-	player.set_media(media)
-
-	events = media.event_manager()
-	events.event_attach(vlc.EventType.MediaStateChanged, state_callback, player)
-
-	if (overRideVolume == 0):
-		player.audio_set_volume(pstate.currVolume)
-	else:
-		player.audio_set_volume(overRideVolume)
-
-	player.play()
-	time.sleep(.1) # Allow time for state_callback to run
-
-	while pstate.audioplaying:
-		time.sleep(.1) # Prevent 100% CPU untilzation
-		continue
-
-	GPIO.output(config['raspberrypi']['plb_light'], GPIO.LOW)
+def is_media_playing():
+	return media_player.is_playing()
 
 
-def stop():
-	global player
-	print "Stopping..."
-	player.stop()
+def is_media_paused():
+	return media_player.is_paused()
 
 
+"""
+Alexa Voice Response Player Methods
+"""
+def play_avr(file, overRideVolume=0):
+	alexa_voice_response_player.play(file)
 
 
-def state_callback(event, player):
-	state = player.get_state()
+def stop_avr():
+	alexa_voice_response_player.stop()
 
-	#0: 'NothingSpecial'
-	#1: 'Opening'
-	#2: 'Buffering'
-	#3: 'Playing'
-	#4: 'Paused'
-	#5: 'Stopped'
-	#6: 'Ended'
-	#7: 'Error'
 
-	if debug: print("{}Alexa Repsonse Player State:{} {}".format(bcolors.OKGREEN, bcolors.ENDC, state))
-	if state == 3:		#Playing
-		pstate.audioplaying = True
-		if pstate.streamid != "":
-			rThread = threading.Thread(target=alexa_playback_progress_report_request, args=("STARTED", "PLAYING", pstate.streamid))
-			rThread.start()
-
-	elif state == 5:	#Stopped
-		pstate.audioplaying = False
-		if pstate.streamid != "":
-			rThread = threading.Thread(target=alexa_playback_progress_report_request, args=("INTERRUPTED", "IDLE", pstate.streamid))
-			rThread.start()
-		pstate.streamurl = ""
-		pstate.streamid = ""
-		pstate.nav_token = ""
-
-	elif state == 6:	#Ended
-		pstate.audioplaying = False
-		if pstate.streamid != "":
-			rThread = threading.Thread(target=alexa_playback_progress_report_request, args=("FINISHED", "IDLE", pstate.streamid))
-			rThread.start()
-			pstate.streamid = ""
-
-		if pstate.streamurl != "":
-			pThread = threading.Thread(target=play, args=(pstate.streamurl,))
-			pThread.start()
-			pstate.streamurl = ""
-
-		elif pstate.nav_token != "":
-			gThread = threading.Thread(target=alexa_getnextitem, args=(pstate.nav_token,))
-			gThread.start()
-
-	elif state == 7:
-		pstate.audioplaying = False
-		if pstate.streamid != "":
-			rThread = threading.Thread(target=alexa_playback_progress_report_request, args=("ERROR", "IDLE", pstate.streamid))
-			rThread.start()
-
-		pstate.streamurl = ""
-		pstate.streamid = ""
-		pstate.nav_token = ""
+def is_avr_playing():
+	return alexa_voice_response_player.is_playing()
