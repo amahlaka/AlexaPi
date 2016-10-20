@@ -19,10 +19,10 @@ import getch
 import sys
 import fileinput
 import datetime
-
 import tunein
 import webrtcvad
 
+from hyper.contrib import HTTP20Adapter
 from pocketsphinx import get_model_path
 from pocketsphinx.pocketsphinx import *
 from sphinxbase.sphinxbase import *
@@ -72,10 +72,13 @@ MAX_RECORDING_LENGTH = 8
 MAX_VOLUME = 100
 MIN_VOLUME = 30
 
+API_VERSION = 'v20160207'
+
+
 def internet_on():
 	print("Checking Internet Connection...")
 	try:
-		r =requests.get('https://api.amazon.com/auth/o2/token')
+		r = requests.get('https://api.amazon.com/auth/o2/token')
 		print("Connection {}OK{}".format(bcolors.OKGREEN, bcolors.ENDC))
 		return True
 	except:
@@ -85,8 +88,10 @@ def internet_on():
 def gettoken():
 	token = mc.get("access_token")
 	refresh = config['alexa']['refresh_token']
+
 	if token:
 		return token
+
 	elif refresh:
 		payload = {"client_id" : config['alexa']['Client_ID'], "client_secret" : config['alexa']['Client_Secret'], "refresh_token" : refresh, "grant_type" : "refresh_token", }
 		url = "https://api.amazon.com/auth/o2/token"
@@ -94,8 +99,98 @@ def gettoken():
 		resp = json.loads(r.text)
 		mc.set("access_token", resp['access_token'], 3570)
 		return resp['access_token']
+
 	else:
 		return False
+
+class http2_connection:
+	s = None
+
+	def __init__(self, url):
+		self.s = requests.Session()
+		self.s.mount(url, HTTP20Adapter())
+
+	def get_http(self):
+		return self.s
+
+	def post(self):
+		return self.s.post
+
+	def get(self):
+		return self.s.post
+
+a = http2_connection('https://api.amazon.com').get_http()
+s = http2_connection('https://avs-alexa-na.amazon.com').get_http()
+
+def authorization():
+	token = mc.get("access_token")
+	refresh = config['alexa']['refresh_token']
+
+	if token:
+		return token
+
+	elif refresh:
+		path = '/auth/o2/token'
+		url = 'https://api.amazon.com%s' % path
+		headers = {'Content-Type' : 'application/x-www-form-urlencoded'}
+		payload = {"grant_type" : "refresh_token", "refresh_token" : refresh, "client_id" : config['alexa']['Client_ID'], "client_secret" : config['alexa']['Client_Secret'], }
+
+		r = a.post(url, headers=headers, data=payload, timeout=None)
+		resp = json.loads(r.text)
+		mc.set("access_token", resp['access_token'], resp['expires_in'] - 30)
+		return resp['access_token']
+
+	else:
+		return False
+
+def downchannel_stream():
+	global API_VERSION, s
+
+	path = '/%s/directives' % API_VERSION
+	url = 'https://avs-alexa-na.amazon.com%s' % path
+	headers = {'Content-Type' : 'application/x-www-form-urlencoded', 'Authorization' : 'Bearer %s' % authorization()}
+
+	try:
+		r = s.get(url, headers=headers, stream=True, timeout=None)
+		print r.status_code
+
+	except:
+		print "could not fetch %s" % url
+
+	#print json.dumps(dict(r.headers)).encode('utf-8')
+	#print r.headers['x-amzn-requestid']
+
+def SynchronizeState():
+	global API_VERSION, s
+
+	path = '/%s/events' % API_VERSION
+	url = 'https://avs-alexa-na.amazon.com%s' % path
+	headers = {"Authorization": "Bearer %s" % authorization()}
+	payload = {"context": [],"event": {"header":{"namespace":"System","name":"SynchronizeState","messageId":"SyncState",},"payload": {}}}
+	files = {'file': json.dumps(payload)}
+
+	try:
+		r = s.post(url, headers=headers, files=files, stream=True, timeout=None)
+		print r.headers
+		print r.content
+
+	except:
+		print "could not fetch %s" % url
+
+def ping():
+	global API_VERSION, s
+
+	path = '/ping'
+	url = 'https://avs-alexa-na.amazon.com:443%s' % path
+	headers = {'authorization' : 'Bearer %s' % authorization()}
+
+	try:
+		r = s.request('GET',url, headers=headers, stream=True, timeout=None)
+
+	except:
+		print "could not fetch %s" % url
+
+	#print resp.headers['x-amzn-requestid'][0]
 
 def alexa_speech_recognizer():
 	# https://developer.amazon.com/public/solutions/alexa/alexa-voice-service/rest/speechrecognizer-requests
@@ -495,5 +590,9 @@ def setup():
 
 
 if __name__ == "__main__":
-	setup()
-	start()
+	authorization()
+	downchannel_stream()
+	ping()
+	SynchronizeState()
+	#setup()
+	#start()
