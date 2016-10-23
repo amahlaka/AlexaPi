@@ -2,8 +2,6 @@
 
 import os
 import tempfile
-import signal
-import shutil
 import random
 import time
 import alsaaudio
@@ -15,7 +13,6 @@ import threading
 import cgi
 import email
 import getch
-import sys
 import fileinput
 import datetime
 import tunein
@@ -25,7 +22,8 @@ from pocketsphinx import get_model_path
 from pocketsphinx.pocketsphinx import *
 from sphinxbase.sphinxbase import *
 
-import alexapi.session as session
+import alexapi.exit_handler as exit_handler
+import alexapi.avs as avs
 import alexapi.player as player
 import alexapi.player_state as pstate
 from alexapi.shared import *
@@ -58,6 +56,7 @@ button_pressed = False
 start = time.time()
 tunein_parser = tunein.TuneIn(5000)
 vad = webrtcvad.Vad(2)
+AVS = False
 
 # constants
 VAD_SAMPLERATE = 16000
@@ -461,14 +460,8 @@ def start():
 		decoder.end_utt()
 
 
-def cleanup(signal, frame):
-	shutil.rmtree(tmp_path)
-	sys.exit(0)
-
-
 def setup():
-	for sig in (signal.SIGABRT, signal.SIGILL, signal.SIGINT, signal.SIGSEGV, signal.SIGTERM):
-		signal.signal(sig, cleanup)
+	exit_handler.CleanUp(tmp_path, AVS)
 
 	GPIO.setwarnings(False)
 	GPIO.cleanup()
@@ -498,8 +491,9 @@ def setup():
 
 
 if __name__ == "__main__":
-	a = session.http2_connection(config)
-	#print a.get_auth_token()
-
+	AVS = avs.API(config)
+	exit_handler.CleanUp(tmp_path, AVS)
+	while True:
+		time.sleep(10)
 	#setup()
 	#start()
