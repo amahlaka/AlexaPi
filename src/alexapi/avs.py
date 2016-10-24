@@ -1,3 +1,6 @@
+#alexapi/avs.py
+
+import sys
 import json
 import time
 import requests
@@ -6,18 +9,20 @@ import threading
 from memcache import Client
 from hyper.contrib import HTTP20Adapter
 
+import shared as shared
+from AVS.interface_manager import *
 
 API_VERSION = 'v20160207'
 avs_auth_url = 'https://api.amazon.com'
 avs_base_url = 'https://avs-alexa-na.amazon.com'
 servers = ["127.0.0.1:11211"]
 mc = Client(servers, debug=1)
+currentFuncName = lambda n=0: sys._getframe(n + 1).f_code.co_name #TODO: Add to debug class
 
-class API:
+class Http:
 	__avs_session = False
 
 	class __Session:
-		__config = False
 		__auth_token = None
 		__session = None
 
@@ -39,23 +44,12 @@ class API:
 			def stop(self):
 				self.__stop = True
 
-			#def update(self, new_interval):
 			def ping(self):
 				count = 0
-
-				while True:
-					if count > 50:
-						break
-
-					if self.__stop:
-						return
-
-					time.sleep(0.1)
-					count += 1
+				timeout = self.__interval * 10
 
 				while True:
 					count = 0
-					print "Pinging..."
 
 					try:
 						r = self.__session.get('/ping')
@@ -65,34 +59,51 @@ class API:
 						print "error: %s" % e
 
 					while count < self.__interval:
-						time.sleep(1)
+						time.sleep(.1)
 						if self.__stop:
+							print "Stopping pings..."
 							return
 						count += 1
 
-		def __init__(self, config):
+				print "Pinging stopped!"
+
+		def __init__(self):
 			# Initialize per: https://developer.amazon.com/public/solutions/alexa/alexa-voice-service/docs/managing-an-http-2-connection#prerequisites
-			self.__config = config
+			while not self.__check_internet():
+				print(".")
+				shared.led.blink_wait()
+
 			self.__auth_token = self.__authenticate()
 			self.__ping = self.__Ping(self)
 			self.__session = self.__new_session(avs_base_url)
 			self.__open_downchannel_stream()
 			self.__synchronize_state(self.__ping)
+			shared.led.blink_rdy()
 
 		def __new_session(self, url):
 			s = requests.Session()
 			s.mount(url, HTTP20Adapter())
 			return s
 
+		def __check_internet(self):
+			print("Checking Internet Connection...")
+			try:
+				self.__new_session('https://api.amazon.com/auth/o2/token')
+				print("Connection {}OK{}".format(shared.bcolors.OKGREEN, shared.bcolors.ENDC))
+				return True
+			except:
+				print("Connection {}Failed{}".format(shared.bcolors.WARNING, shared.bcolors.ENDC))
+				return False
+
 		def __authenticate(self):
 			session = self.__new_session(avs_auth_url)
 			current_token = mc.get("access_token")
-			refresh_token = self.__config['alexa']['refresh_token']
+			refresh_token = shared.config['alexa']['refresh_token']
 
 			if not current_token and refresh_token:
 				url_path = '%s/auth/o2/token' % avs_auth_url
 				headers = {'Content-Type' : 'application/x-www-form-urlencoded'}
-				payload = {"grant_type" : "refresh_token", "refresh_token" : refresh_token, "client_id" : self.__config['alexa']['Client_ID'], "client_secret" : self.__config['alexa']['Client_Secret'], }
+				payload = {"grant_type" : "refresh_token", "refresh_token" : refresh_token, "client_id" : shared.config['alexa']['Client_ID'], "client_secret" : shared.config['alexa']['Client_Secret'], }
 
 				r = session.post(url_path, headers=headers, data=payload, timeout=None)
 				resp = json.loads(r.text)
@@ -115,7 +126,7 @@ class API:
 				request = self.__session.get(full_url, headers=headers, stream=True, timeout=None)
 
 			except Exception as e:
-				print "__open_downchannel_stream(): Could not open AVS downchannel stream - %s" % full_url
+				print "{}(): Could not open AVS downchannel stream - {}".format(currentFuncName, full_url)
 				print "error: %s" % e
 				return False
 
@@ -134,7 +145,7 @@ class API:
 				#print request.headers['x-amzn-requestid']
 
 			except Exception as e:
-				print "__synchronize_state(): Could not synchronize state - %s" % full_url
+				print "{}(): Could not synchronize state - %s".format(currentFuncName, full_url)
 				print "error: %s" % e
 				return False
 
@@ -155,7 +166,7 @@ class API:
 				request = self.__session.post(full_url, headers=headers, files=payload, stream=True, timeout=None)
 
 			except Exception as e:
-				print "synchronize_state(): could not fetch %s" % full_url
+				print "{}(): Could not post to: {}".format(currentFuncName, full_url)
 				print "error: %s" % e
 				return False
 
@@ -169,22 +180,18 @@ class API:
 				request = self.__session.get(full_url, headers=headers, stream=True, timeout=None)
 
 			except Exception as e:
-				print "synchronize_state(): could not fetch %s" % full_url
+				print "{}(): Could not get to: {}".format(currentFuncName, full_url)
 				print "error: %s" % e
 				return False
 
 			return request
 
-	def __init__(self, config):
-		self.__avs_session = self.__Session(config)
+	def __init__(self):
+		self.__avs_session = self.__Session()
 
 	def close(self):
 		self.__avs_session.get_pinger().stop()
 
-	def synchronize_state(self):
-		path = '/{}/events'.format(API_VERSION)
-		api = {"context": [],"event": {"header":{"namespace":"System","name":"SynchronizeState","messageId":"SyncState",},"payload": {}}}
-		payload = {'file': json.dumps(api)}
-
-		r = self.__avs_session.post(path, payload)
-		print 'Status code: %s' % r.status_code
+	def send_event(self, API):
+		interface = Interface(self.__avs_session)
+		interface.process_event(API)

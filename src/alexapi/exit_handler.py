@@ -2,24 +2,32 @@ import sys
 import signal
 import shutil
 
+import shared as shared
 
 class CleanUp:
-	__tmp_path = False
 	__session = False
+	__executed = False
 
-	def __init__(self, path, session):
-		self.__tmp_path = path
-		self.__session = session
+	def __init__(self, session=False):
+		if session:
+			self.__session = session
 
 		for sig in (signal.SIGABRT, signal.SIGILL, signal.SIGINT, signal.SIGSEGV, signal.SIGTERM):
-			signal.signal(sig, self.__cleanup)
+			signal.signal(sig, self.cleanup)
 
-	def __cleanup(self, signal, frame):
-		print "Exiting..."
-		if self.__tmp_path:
-			shutil.rmtree(self.__tmp_path)
+	def add_session_cleanup(self, session):
+		self.__session = session
 
-		if self.__session:
-			self.__session.close()
+	def cleanup(self, signal=False, frame=False):
+		if not self.__executed:
+			print "Exiting..."
+
+			shutil.rmtree(shared.tmp_path)
+
+			if self.__session:
+				print "Closing session..."
+				self.__session.close()
+
+			self.__executed = True
 
 		sys.exit(0)

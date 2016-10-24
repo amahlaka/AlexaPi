@@ -1,3 +1,5 @@
+#alexapi/player.py
+
 import vlc
 import time
 import threading
@@ -27,7 +29,7 @@ class AlexaVoiceResponsePlayer(object):
 	def play(self, file, overRideVolume=0):
 		global avr_playing
 		if debug: print("{}Alexa Voice Response_Player Request for:{} {}".format(bcolors.OKBLUE, bcolors.ENDC, file))
-		GPIO.output(config['raspberrypi']['plb_light'], GPIO.HIGH)
+		led.status_on()
 
 		self.player = self.instance.media_player_new()
 		media = self.instance.media_new(file)
@@ -48,7 +50,7 @@ class AlexaVoiceResponsePlayer(object):
 			time.sleep(.1) # Prevent 100% CPU untilzation
 			continue
 
-		GPIO.output(config['raspberrypi']['plb_light'], GPIO.LOW)
+		led.status_off()
 
 
 	def stop(self):
