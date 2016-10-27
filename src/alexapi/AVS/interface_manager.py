@@ -1,6 +1,7 @@
 #alexapi/AVS/interface_manager.py
 
 import alexapi.shared as shared
+import alexapi.AVS.directive_dispatcher as directive_dispatcher
 from speech_recognizer import *
 
 class Interface:
@@ -9,6 +10,14 @@ class Interface:
 
 	def __init__(self, avs_session):
 		self.__avs_session = avs_session
+		self.__directive_dispatcher = directive_dispatcher.DirectiveDispatcher()
+
+	def __check_if_not_error(self, response):
+		if not response.status_code >= 200 and not response.status_code < 300:
+			print("{}(process_response Error){} Status Code: {} - {}".format(shared.bcolors.WARNING, shared.bcolors.ENDC, response.status_code, response.text))
+			return False
+
+		return True
 
 	def __get(self, argument):
 		"""Dispatch method"""
@@ -27,18 +36,16 @@ class Interface:
 
 	def process_event(self, API):
 		print "Processing event: %s" % API
-		return self.__get(API)
+		self.__get(API)
 
-	def __check_if_not_error(self, response):
-		if not response.status_code >= 200 and not response.status_code < 300:
-			print("{}(process_response Error){} Status Code: {} - {}".format(shared.bcolors.WARNING, shared.bcolors.ENDC, response.status_code, response.text))
-			return False
+	def process_directive(self, response):
+		print "Processing directive: %s" % API
+		self.__directive_dispatcher.processor(response)
 
-		return True
 
 	# Call API
 	def api_event_SpeechRecognizer(self):
 		api = SpeechRecognizer(self)
 		response = api.send()
 		if self.__check_if_not_error(response):
-			api.process(response)
+			self.process_directive(response)
