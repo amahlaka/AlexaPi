@@ -14,7 +14,6 @@ import random
 import datetime
 import requests
 import alsaaudio
-import threading
 import fileinput
 import webrtcvad
 import traceback
@@ -23,11 +22,11 @@ from pocketsphinx import get_model_path
 from pocketsphinx.pocketsphinx import *
 from sphinxbase.sphinxbase import *
 
-import alexapi.exit_handler as exit_handler
-import alexapi.avs as avs
-import alexapi.player as player
-import alexapi.player_state as pstate
+from alexapi.avs.interface_manager import InterfaceManager
 import alexapi.shared as shared
+import alexapi.player.player as player
+import alexapi.player.player_state as pstate
+import alexapi.exit_handler as exit_handler
 
 #Setup
 recorded = False
@@ -73,176 +72,7 @@ MIN_VOLUME = 30
 def alexa_speech_recognizer():
 	# https://developer.amazon.com/public/solutions/alexa/alexa-voice-service/rest/speechrecognizer-requests
 	if shared.debug: print("{}Sending Speech Request...{}".format(shared.bcolors.OKBLUE, shared.bcolors.ENDC))
-	r = http.send_event(avs.API.SpeechRecognizer)
-
-def alexa_getnextitem(nav_token):
-	# https://developer.amazon.com/public/solutions/alexa/alexa-voice-service/rest/audioplayer-getnextitem-request
-	time.sleep(0.5)
-        if not player.is_avr_playing():
-		if shared.debug: print("{}Sending GetNextItem Request...{}".format(shared.bcolors.OKBLUE, shared.bcolors.ENDC))
-		url = 'https://access-alexa-na.amazon.com/v1/avs/audioplayer/getNextItem'
-		headers = {'Authorization' : 'Bearer %s' % gettoken(), 'content-type' : 'application/json; charset=UTF-8'}
-		d = {
-			"messageHeader": {},
-			"messageBody": {
-				"navigationToken": nav_token
-			}
-		}
-		r = requests.post(url, headers=headers, data=json.dumps(d))
-		process_response(r)
-
-def alexa_playback_progress_report_request(requestType, playerActivity, streamid):
-	# https://developer.amazon.com/public/solutions/alexa/alexa-voice-service/rest/audioplayer-events-requests
-	# streamId                  Specifies the identifier for the current stream.
-	# offsetInMilliseconds      Specifies the current position in the track, in milliseconds.
-	# playerActivity            IDLE, PAUSED, or PLAYING
-	if shared.debug: print("{}Sending Playback Progress Report Request...{}".format(shared.bcolors.OKBLUE, shared.bcolors.ENDC))
-	headers = {'Authorization' : 'Bearer %s' % gettoken()}
-	d = {
-		"messageHeader": {},
-		"messageBody": {
-			"playbackState": {
-				"streamId": streamid,
-				"offsetInMilliseconds": 0,
-				"playerActivity": playerActivity.upper()
-			}
-		}
-	}
-
-	if requestType.upper() == "ERROR":
-		# The Playback Error method sends a notification to AVS that the audio player has experienced an issue during playback.
-		url = "https://access-alexa-na.amazon.com/v1/avs/audioplayer/playbackError"
-	elif requestType.upper() ==  "FINISHED":
-		# The Playback Finished method sends a notification to AVS that the audio player has completed playback.
-		url = "https://access-alexa-na.amazon.com/v1/avs/audioplayer/playbackFinished"
-	elif requestType.upper() ==  "IDLE":
-		# The Playback Idle method sends a notification to AVS that the audio player has reached the end of the playlist.
-		url = "https://access-alexa-na.amazon.com/v1/avs/audioplayer/playbackIdle"
-	elif requestType.upper() ==  "INTERRUPTED":
-		# The Playback Interrupted method sends a notification to AVS that the audio player has been interrupted.
-		# Note: The audio player may have been interrupted by a previous stop Directive.
-		url = "https://access-alexa-na.amazon.com/v1/avs/audioplayer/playbackInterrupted"
-	elif requestType.upper() ==  "PROGRESS_REPORT":
-		# The Playback Progress Report method sends a notification to AVS with the current state of the audio player.
-		url = "https://access-alexa-na.amazon.com/v1/avs/audioplayer/playbackProgressReport"
-	elif requestType.upper() ==  "STARTED":
-		# The Playback Started method sends a notification to AVS that the audio player has started playing.
-		url = "https://access-alexa-na.amazon.com/v1/avs/audioplayer/playbackStarted"
-
-	r = requests.post(url, headers=headers, data=json.dumps(d))
-	if r.status_code != 204:
-		print("{}(alexa_playback_progress_report_request Response){} {}".format(shared.bcolors.WARNING, shared.bcolors.ENDC, r))
-	else:
-		if shared.debug: print("{}Playback Progress Report was {}Successful!{}".format(shared.bcolors.OKBLUE, shared.bcolors.OKGREEN, shared.bcolors.ENDC))
-
-def process_response(r):
-	if shared.debug: print("{}Processing Request Response...{}".format(shared.bcolors.OKBLUE, shared.bcolors.ENDC))
-	pstate.nav_token = ""
-	pstate.streamurl = ""
-	pstate.streamid = ""
-	if r.status_code == 200:
-		data = "Content-Type: " + r.headers['content-type'] +'\r\n\r\n'+ r.content
-		msg = email.message_from_string(data)
-		for payload in msg.get_payload():
-			if payload.get_content_type() == "application/json":
-				j =  json.loads(payload.get_payload())
-				if shared.debug: print("{}JSON String Returned:{} {}".format(shared.bcolors.OKBLUE, shared.bcolors.ENDC, json.dumps(j)))
-			elif payload.get_content_type() == "audio/mpeg":
-				filename = shared.tmp_path + payload.get('Content-ID').strip("<>")+".mp3"
-				with open(filename, 'wb') as f:
-					f.write(payload.get_payload())
-			else:
-				if shared.debug: print("{}NEW CONTENT TYPE RETURNED: {} {}".format(shared.bcolors.WARNING, shared.bcolors.ENDC, payload.get_content_type()))
-		# Now process the response
-		if 'directives' in j['messageBody']:
-			if len(j['messageBody']['directives']) == 0:
-				if shared.debug: print("0 Directives received")
-				shared.led.rec_off()
-				shared.led.status_off()
-
-			for directive in j['messageBody']['directives']:
-				if directive['namespace'] == 'SpeechSynthesizer':
-					if directive['name'] == 'speak':
-						shared.led.rec_off()
-						player.play_avr("file://" + shared.tmp_path + directive['payload']['audioContent'].lstrip("cid:")+".mp3")
-					for directive in j['messageBody']['directives']: # if Alexa expects a response
-						if directive['namespace'] == 'SpeechRecognizer': # this is included in the same string as above if a response was expected
-							if directive['name'] == 'listen':
-								if shared.debug: print("{}Further Input Expected, timeout in: {} {}ms".format(shared.bcolors.OKBLUE, shared.bcolors.ENDC, directive['payload']['timeoutIntervalInMillis']))
-								player.play_avr(resources_path+'beep.wav', 0, 100)
-								timeout = directive['payload']['timeoutIntervalInMillis']/116
-								# listen until the timeout from Alexa
-								silence_listener(timeout)
-								# now process the response
-								alexa_speech_recognizer()
-				elif directive['namespace'] == 'AudioPlayer':
-					#do audio stuff - still need to honor the playBehavior
-					if directive['name'] == 'play':
-						pstate.nav_token = directive['payload']['navigationToken']
-						for stream in directive['payload']['audioItem']['streams']:
-							if stream['progressReportRequired']:
-								pstate.streamid = stream['streamId']
-								playBehavior = directive['payload']['playBehavior']
-							if stream['streamUrl'].startswith("cid:"):
-								content = "file://" + shared.tmp_path + stream['streamUrl'].lstrip("cid:")+".mp3"
-							else:
-								content = stream['streamUrl']
-							pThread = threading.Thread(target=player.play_media, args=(content, stream['offsetInMilliseconds']))
-							pThread.start()
-					if directive['name'] == 'stop':
-							pThread = threading.Thread(target=player.stop_media_player)
-							pThread.start()
-				elif directive['namespace'] == "Speaker":
-					# speaker control such as volume
-					if directive['name'] == 'SetVolume':
-						vol_token = directive['payload']['volume']
-						type_token = directive['payload']['adjustmentType']
-						if (type_token == 'relative'):
-							pstate.currVolume = pstate.currVolume + int(vol_token)
-						else:
-							pstate.currVolume = int(vol_token)
-
-						if (pstate.currVolume > MAX_VOLUME):
-							pstate.currVolume = MAX_VOLUME
-						elif (pstate.currVolume < MIN_VOLUME):
-							pstate.currVolume = MIN_VOLUME
-						if shared.debug: print("new volume = {}".format(pstate.currVolume))
-
-		elif 'audioItem' in j['messageBody']:		#Additional Audio Iten
-			pstate.nav_token = j['messageBody']['navigationToken']
-			for stream in j['messageBody']['audioItem']['streams']:
-				if stream['progressReportRequired']:
-					pstate.streamid = stream['streamId']
-				if stream['streamUrl'].startswith("cid:"):
-					content = "file://" + shared.tmp_path + stream['streamUrl'].lstrip("cid:")+".mp3"
-				else:
-					content = stream['streamUrl']
-				pThread = threading.Thread(target=player.play_media, args=(content, stream['offsetInMilliseconds']))
-				pThread.start()
-
-		return
-
-	elif r.status_code == 204:
-		led.blink_valid_data_received()
-		player.resume_media_player()
-		if shared.debug: print("{}Request Response is null {}(This is OKAY!){}".format(shared.bcolors.OKBLUE, shared.bcolors.OKGREEN, shared.bcolors.ENDC))
-	else:
-		print("{}(process_response Error){} Status Code: {} - {}".format(shared.bcolors.WARNING, shared.bcolors.ENDC, r.status_code, r.text))
-		r.close()
-		led.blink_error()
-
-def tuneinplaylist(url):
-	global tunein_parser
-	if shared.debug: print("TUNE IN URL = {}".format(url))
-	req = requests.get(url)
-	lines = req.content.split('\n')
-
-	nurl = tunein_parser.parse_stream_url(lines[0])
-	if (len(nurl) != 0):
-		return nurl[0]
-
-	return ""
-
+	avs_interface.send_event('SpeechRecognizer', 'Recognize')
 
 def detect_button(channel):
         global button_pressed
@@ -320,7 +150,6 @@ def silence_listener(throwaway_frames):
 		rf.close()
 		inp.close()
 
-
 def start():
 	global vad, button_pressed
 	shared.Button(detect_button)
@@ -392,13 +221,12 @@ def start():
 		decoder.end_utt()
 
 def setup():
-	global http, exit
+	global avs_interface, exit
 	exit = exit_handler.CleanUp()
 
-	http = avs.Http()
-	exit.add_session_cleanup(http)
-	player.setup(alexa_playback_progress_report_request, alexa_getnextitem, tuneinplaylist)
-
+	#hardware = hadware.Somthing() #Initialize hardware
+	avs_interface = InterfaceManager()
+	#player.setup(alexa_playback_progress_report_request, alexa_getnextitem, tuneinplaylist)
 	if (shared.silent == False): player.play_avr(resources_path+"hello.mp3")
 
 if __name__ == "__main__":

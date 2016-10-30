@@ -1,15 +1,9 @@
-#alexapi/AVS/speech_recognizer.py
+#alexapi/AVS/Interface/SpeechRecognizer.py
 
 import json
 
 import alexapi.shared as shared
-import alexapi.player_state as pstate
 
-class API:
-	SpeechRecognizer = 'SpeechRecognizer'
-
-
-#TODO: Make Abstract
 class SpeechRecognizer:
 	__avsi = None
 	__api = {
@@ -30,7 +24,10 @@ class SpeechRecognizer:
 	def __init__(self, avs_interface):
 		self.__avsi = avs_interface
 
-	def send(self):
+	def getName(self):
+		return 'SpeechRecognizer'
+
+	def Recognize(self):
 		with open('{}recording.wav'.format(shared.tmp_path)) as wav_file:
 			payload = [
 				('file', ('request', json.dumps(self.__api), 'application/json; charset=UTF-8')),
@@ -41,5 +38,5 @@ class SpeechRecognizer:
 
 		return response
 
-	def process(self, r):
+	def process(self):
 		print("{}Processing Request Response...{}".format(shared.bcolors.OKBLUE, shared.bcolors.ENDC))

@@ -1,4 +1,4 @@
-#alexapi/avs.py
+#alexapi/http/http.py
 
 import sys
 import json
@@ -9,8 +9,8 @@ import threading
 from memcache import Client
 from hyper.contrib import HTTP20Adapter
 
-import shared as shared
-from AVS.interface_manager import *
+import alexapi.shared as shared
+
 
 API_VERSION = 'v20160207'
 avs_auth_url = 'https://api.amazon.com'
@@ -21,18 +21,24 @@ currentFuncName = lambda n=0: sys._getframe(n + 1).f_code.co_name #TODO: Add to 
 
 class Http:
 	__avs_session = False
+	__interface = None
 
 	class __Session:
 		__auth_token = None
 		__session = None
 
 		class __Ping:
+			__initialized = False
 			__session = None
 			__stop = False
 			__interval = 60 * 5 # Five minutes
 
 			def __init__(self, session):
-				self.__session = session
+				try:
+					self.__session = session
+					self.__initialized = True
+				finally:
+					if self.__initialized: self.stop()
 
 			def start(self, interval=False):
 				if interval:
@@ -61,11 +67,8 @@ class Http:
 					while count < self.__interval:
 						time.sleep(.1)
 						if self.__stop:
-							print "Stopping pings..."
 							return
 						count += 1
-
-				print "Pinging stopped!"
 
 		def __init__(self):
 			# Initialize per: https://developer.amazon.com/public/solutions/alexa/alexa-voice-service/docs/managing-an-http-2-connection#prerequisites
@@ -186,12 +189,16 @@ class Http:
 
 			return request
 
-	def __init__(self):
+	def __init__(self, interface):
 		self.__avs_session = self.__Session()
+		self.__interface = interface
+
+	def get_avs_session(self):
+		return self.__avs_session
 
 	def close(self):
 		self.__avs_session.get_pinger().stop()
 
 	def send_event(self, API):
-		interface = Interface(self.__avs_session)
-		interface.process_event(API)
+		#interface = Interface(self.__avs_session)
+		self.__interface.process_event(API)

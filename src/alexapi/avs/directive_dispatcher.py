@@ -1,13 +1,20 @@
-#alexapi/AVS/directive_dispatcher.py
+#alexapi/avs/directive_dispatcher.py
 
 import json
 import email
 
 import alexapi.shared as shared
-import alexapi.player as player
-import alexapi.player_state as pstate
+import alexapi.player.player as player
+import alexapi.player.player_state as pstate
 
 class DirectiveDispatcher:
+	__interface_manager = None
+	__payload = None
+
+	def __init__(self, interface_manager):
+		self.__interface_manager = interface_manager
+		self.__payload =  interface_manager.Payload
+
 	def find_attachement(self, payload, directive):
 		if "format" in directive['directive']['payload'] and directive['directive']['payload']['format'] == 'AUDIO_MPEG':
 			for msg in payload:
@@ -16,6 +23,78 @@ class DirectiveDispatcher:
 					if content_id == directive['directive']['payload']['url'].lstrip('cid:'):
 						return msg
 		return False
+
+	def alexa_getnextitem(nav_token):
+		# https://developer.amazon.com/public/solutions/alexa/alexa-voice-service/rest/audioplayer-getnextitem-request
+		time.sleep(0.5)
+		if not player.is_avr_playing():
+			if shared.debug: print("{}Sending GetNextItem Request...{}".format(shared.bcolors.OKBLUE, shared.bcolors.ENDC))
+			url = 'https://access-alexa-na.amazon.com/v1/avs/audioplayer/getNextItem'
+			headers = {'Authorization' : 'Bearer %s' % gettoken(), 'content-type' : 'application/json; charset=UTF-8'}
+			d = {
+				"messageHeader": {},
+				"messageBody": {
+					"navigationToken": nav_token
+				}
+			}
+			r = requests.post(url, headers=headers, data=json.dumps(d))
+			process_response(r)
+
+	def alexa_playback_progress_report_request(requestType, playerActivity, streamid):
+		# https://developer.amazon.com/public/solutions/alexa/alexa-voice-service/rest/audioplayer-events-requests
+		# streamId                  Specifies the identifier for the current stream.
+		# offsetInMilliseconds      Specifies the current position in the track, in milliseconds.
+		# playerActivity            IDLE, PAUSED, or PLAYING
+		if shared.debug: print("{}Sending Playback Progress Report Request...{}".format(shared.bcolors.OKBLUE, shared.bcolors.ENDC))
+		headers = {'Authorization' : 'Bearer %s' % gettoken()}
+		d = {
+			"messageHeader": {},
+			"messageBody": {
+				"playbackState": {
+					"streamId": streamid,
+					"offsetInMilliseconds": 0,
+					"playerActivity": playerActivity.upper()
+				}
+			}
+		}
+
+		if requestType.upper() == "ERROR":
+			# The Playback Error method sends a notification to AVS that the audio player has experienced an issue during playback.
+			url = "https://access-alexa-na.amazon.com/v1/avs/audioplayer/playbackError"
+		elif requestType.upper() ==  "FINISHED":
+			# The Playback Finished method sends a notification to AVS that the audio player has completed playback.
+			url = "https://access-alexa-na.amazon.com/v1/avs/audioplayer/playbackFinished"
+		elif requestType.upper() ==  "IDLE":
+			# The Playback Idle method sends a notification to AVS that the audio player has reached the end of the playlist.
+			url = "https://access-alexa-na.amazon.com/v1/avs/audioplayer/playbackIdle"
+		elif requestType.upper() ==  "INTERRUPTED":
+			# The Playback Interrupted method sends a notification to AVS that the audio player has been interrupted.
+			# Note: The audio player may have been interrupted by a previous stop Directive.
+			url = "https://access-alexa-na.amazon.com/v1/avs/audioplayer/playbackInterrupted"
+		elif requestType.upper() ==  "PROGRESS_REPORT":
+			# The Playback Progress Report method sends a notification to AVS with the current state of the audio player.
+			url = "https://access-alexa-na.amazon.com/v1/avs/audioplayer/playbackProgressReport"
+		elif requestType.upper() ==  "STARTED":
+			# The Playback Started method sends a notification to AVS that the audio player has started playing.
+			url = "https://access-alexa-na.amazon.com/v1/avs/audioplayer/playbackStarted"
+
+		r = requests.post(url, headers=headers, data=json.dumps(d))
+		if r.status_code != 204:
+			print("{}(alexa_playback_progress_report_request Response){} {}".format(shared.bcolors.WARNING, shared.bcolors.ENDC, r))
+		else:
+			if shared.debug: print("{}Playback Progress Report was {}Successful!{}".format(shared.bcolors.OKBLUE, shared.bcolors.OKGREEN, shared.bcolors.ENDC))
+
+	def tuneinplaylist(url):
+		global tunein_parser
+		if shared.debug: print("TUNE IN URL = {}".format(url))
+		req = requests.get(url)
+		lines = req.content.split('\n')
+
+		nurl = tunein_parser.parse_stream_url(lines[0])
+		if (len(nurl) != 0):
+			return nurl[0]
+
+		return ""
 
 	def processor(self, r):
 		print("{}Processing Request Response...{}".format(shared.bcolors.OKBLUE, shared.bcolors.ENDC))
@@ -35,9 +114,15 @@ class DirectiveDispatcher:
 						with open(filename, 'wb') as f:
 							f.write(binary.get_payload())
 
+					self.__payload.filename = filename
+					self.__payload.json = j
+					self.__interface_manager.dispatch_directive(self.__payload)
+					return
+
 					# Now process the response
 					if 'directive' in j:
 						directive = j['directive']['header']['namespace']
+
 
 						if len(j['directive']) == 0:
 							print("0 Directives received")

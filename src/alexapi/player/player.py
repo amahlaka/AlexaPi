@@ -1,12 +1,12 @@
-#alexapi/player.py
+#alexapi/player/player.py
 
 import vlc
 import time
 import threading
 from collections import deque
 
-from shared import *
-import player_state as pstate
+from alexapi.shared import *
+import alexapi.player.player_state as pstate
 
 player = None
 alexa_playback_progress_report_request = None
@@ -26,7 +26,7 @@ class AlexaVoiceResponsePlayer(object):
 		self.instance = vlc.Instance('--aout=alsa') # , '--alsa-audio-device=mono', '--file-logging', '--logfile=vlc-log.txt')
 
 
-	def play(self, file, overRideVolume=0):
+	def play(self, file, callback=False, overRideVolume=0):
 		global avr_playing
 		if debug: print("{}Alexa Voice Response_Player Request for:{} {}".format(bcolors.OKBLUE, bcolors.ENDC, file))
 		led.status_on()
@@ -36,7 +36,7 @@ class AlexaVoiceResponsePlayer(object):
 		self.player.set_media(media)
 
 		events = media.event_manager()
-		events.event_attach(vlc.EventType.MediaStateChanged, self.avrp_callback, self.player)
+		events.event_attach(vlc.EventType.MediaStateChanged, self.avrp_callback, self.player, callback)
 
 		if (overRideVolume == 0):
 			self.player.audio_set_volume(pstate.currVolume)
@@ -62,7 +62,7 @@ class AlexaVoiceResponsePlayer(object):
 		return avr_playing
 
 
-	def avrp_callback(self, event, player):
+	def avrp_callback(self, event, player, callback=False):
 		global avr_playing, alexa_playback_progress_report_request, alexa_getnextitem
 
 		state = player.get_state()
@@ -117,6 +117,9 @@ class AlexaVoiceResponsePlayer(object):
 			pstate.streamurl = ""
 			pstate.streamid = ""
 			pstate.nav_token = ""
+
+		if callback:
+			callback(state)
 
 
 class MediaPlayer(object):
@@ -292,8 +295,8 @@ def is_media_paused():
 """
 Alexa Voice Response Player Methods
 """
-def play_avr(file, overRideVolume=0):
-	alexa_voice_response_player.play(file)
+def play_avr(file, callback=False, overRideVolume=0):
+	alexa_voice_response_player.play(file, callback, overRideVolume)
 
 
 def stop_avr():
