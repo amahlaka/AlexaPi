@@ -6,6 +6,9 @@ import email
 import alexapi.shared as shared
 import alexapi.player.player as player
 import alexapi.player.player_state as pstate
+import alexapi.player.tunein as tunein
+
+tunein_parser = tunein.TuneIn(5000)
 
 class DirectiveDispatcher:
 	__interface_manager = None

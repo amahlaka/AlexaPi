@@ -9,7 +9,6 @@ import json
 import wave
 import email
 import getch
-import tunein
 import random
 import datetime
 import requests
@@ -53,7 +52,6 @@ decoder = Decoder(ps_config)
 #Variables
 button_pressed = False
 start = time.time()
-tunein_parser = tunein.TuneIn(5000)
 vad = webrtcvad.Vad(2)
 http = False
 exit = False
@@ -226,7 +224,6 @@ def setup():
 
 	#hardware = hadware.Somthing() #Initialize hardware
 	avs_interface = InterfaceManager()
-	#player.setup(alexa_playback_progress_report_request, alexa_getnextitem, tuneinplaylist)
 	if (shared.silent == False): player.play_avr(resources_path+"hello.mp3")
 
 if __name__ == "__main__":
