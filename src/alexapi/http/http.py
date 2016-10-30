@@ -3,6 +3,7 @@
 import sys
 import json
 import time
+import socket
 import requests
 import threading
 
@@ -24,8 +25,10 @@ class Http:
 	__interface = None
 
 	class __Session:
+		__interface = None
 		__auth_token = None
 		__session = None
+		__downstream_running = False
 
 		class __Ping:
 			__initialized = False
@@ -70,16 +73,24 @@ class Http:
 							return
 						count += 1
 
-		def __init__(self):
+		def __init__(self, interface):
 			# Initialize per: https://developer.amazon.com/public/solutions/alexa/alexa-voice-service/docs/managing-an-http-2-connection#prerequisites
 			while not self.__check_internet():
 				print(".")
 				shared.led.blink_wait()
 
+			self.__interface = interface
 			self.__auth_token = self.__authenticate()
 			self.__ping = self.__Ping(self)
 			self.__session = self.__new_session(avs_base_url)
-			self.__open_downchannel_stream()
+
+			try:
+				timer = threading.Thread(target=self.__open_downchannel_stream)
+				timer.start()
+			finally:
+				self.__downstream_running = False
+
+			#self.__open_downchannel_stream()
 			self.__synchronize_state(self.__ping)
 			shared.led.blink_rdy()
 
@@ -125,15 +136,33 @@ class Http:
 			full_url = '{}/{}/directives'.format(avs_base_url, API_VERSION)
 			headers = {"Authorization": "Bearer %s" % self.__auth_token}
 
-			try:
-				request = self.__session.get(full_url, headers=headers, stream=True, timeout=None)
+			self.__downstream_running = True
+			polling_interval = 3
 
-			except Exception as e:
-				print "{}(): Could not open AVS downchannel stream - {}".format(currentFuncName, full_url)
-				print "error: %s" % e
-				return False
+			while self.__downstream_running:
+				response = False
+				start = time.clock()
 
-			return True
+				try:
+					response = self.__session.get(full_url, headers=headers, stream=True, timeout=None)
+					print 'Downchannel response: %s' % (response.raw.read(10))
+
+				#except Exception as e:
+				#	print "Could not open AVS downchannel stream - {}".format(full_url)
+				#	print "error: %s" % e
+				#	print sys.exc_info()
+				except:
+					pass
+
+				work_duration = time.clock() - start
+				print work_duration
+				time.sleep(polling_interval - work_duration) # ensures polling_interval
+
+			print 'Shutting down Downstream...'
+
+		def __get_data(self, response, **kwargs):
+			print response
+			self.__interface.process_directive(response)
 
 		def __synchronize_state(self, ping):
 			full_url = '{}/{}/events'.format(avs_base_url, API_VERSION)
@@ -145,7 +174,6 @@ class Http:
 				return self.__session
 			try:
 				request = self.__session.post(full_url, headers=headers, files=payload, stream=True, timeout=None)
-				#print request.headers['x-amzn-requestid']
 
 			except Exception as e:
 				print "{}(): Could not synchronize state - %s".format(currentFuncName, full_url)
@@ -157,6 +185,9 @@ class Http:
 
 		def get_pinger(self):
 			return self.__ping
+
+		def stop_downstream(self):
+			self.__downstream_running = False
 
 		def get_auth_token(self):
 			return self.__auth_token
@@ -190,15 +221,15 @@ class Http:
 			return request
 
 	def __init__(self, interface):
-		self.__avs_session = self.__Session()
 		self.__interface = interface
+		self.__avs_session = self.__Session(interface)
 
 	def get_avs_session(self):
 		return self.__avs_session
 
 	def close(self):
 		self.__avs_session.get_pinger().stop()
+		self.__avs_session.stop_downstream()
 
-	def send_event(self, API):
-		#interface = Interface(self.__avs_session)
-		self.__interface.process_event(API)
+	#def send_event(self, API):
+	#	self.__interface.process_event(API)

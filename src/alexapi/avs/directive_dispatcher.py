@@ -102,9 +102,11 @@ class DirectiveDispatcher:
 	def processor(self, r):
 		print("{}Processing Request Response...{}".format(shared.bcolors.OKBLUE, shared.bcolors.ENDC))
 
-		if r.status_code == 200:
+		if r and r.status_code == 200:
 			data = "Content-Type: " + r.headers['content-type'] +'\r\n\r\n'+ r.content
 			msg = email.message_from_string(data)
+			filename = False
+			j = False
 
 			for payload in msg.get_payload():
 				if payload.get_content_type() == "application/json":
@@ -194,13 +196,15 @@ class DirectiveDispatcher:
 
 			return
 
-		elif r.status_code == 204:
+		elif r and r.status_code == 204:
 			shared.led.rec_off()
 			shared.led.blink_error()
-			player.resume_media_player()
 			if shared.debug: print("{}Request Response is null {}(This is OKAY!){}".format(shared.bcolors.OKBLUE, shared.bcolors.OKGREEN, shared.bcolors.ENDC))
+
 		else:
-			print("{}(process_response Error){} Status Code: {} - {}".format(shared.bcolors.WARNING, shared.bcolors.ENDC, r.status_code, r.text))
-			r.close()
+			if r:
+				print("{}(process_response Error){} Status Code: {} - {}".format(shared.bcolors.WARNING, shared.bcolors.ENDC, r.status_code, r.text))
+				r.close()
+
 			shared.led.status_off()
 			shared.led.blink_valid_data_received()

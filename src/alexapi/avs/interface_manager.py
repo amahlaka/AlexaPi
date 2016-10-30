@@ -16,8 +16,8 @@ class InterfaceManager:
 		json = None
 
 	def __init__(self):
+		self.__directive_dispatcher = DirectiveDispatcher(self) #Initialize dispather before Http()
 		self.__avs_session = Http(self)
-		self.__directive_dispatcher = DirectiveDispatcher(self)
 		self.__import_modules()
 
 	def __check_if_not_error(self, response):
@@ -56,14 +56,17 @@ class InterfaceManager:
 	def get_avs_session(self):
 		return self.__avs_session.get_avs_session()
 
+	def process_directive(self, response):
+		self.__directive_dispatcher.processor(response)
+
 	def send_event(self, namespace, event_name):
-		print "Dispatching event: {}...".format(namespace)
 		class_instance = getattr(self, str(namespace), None)
 		if class_instance:
+			print "{}Dispatching event(namespace/name):{} {}/{}...".format(shared.bcolors.OKBLUE, shared.bcolors.ENDC, namespace, event_name)
 			event_method = getattr(class_instance, str(event_name), None)
 			self.process_directive(event_method())
 		else:
-			print "Unknown event(namespace/name): {}/{}...".format(namespace, event_name)
+			print "{}Unknown event(namespace/name):{} {}/{}...".format(shared.bcolors.OKBLUE, shared.bcolors.ENDC, namespace, event_name)
 			return False
 
 	def dispatch_directive(self, payload=False):
@@ -73,13 +76,9 @@ class InterfaceManager:
 		class_instance = getattr(self, str(namespace), None)
 
 		if class_instance:
-			print "Dispatching directive(namespace/name): {}/{}...".format(namespace, directive_name)
+			print "{}Dispatching directive(namespace/name):{} {}/{}...".format(shared.bcolors.OKBLUE, shared.bcolors.ENDC, namespace, directive_name)
 			directive_method = getattr(class_instance, str(directive_name), None)
 			directive_method(payload)
 		else:
-			print "Unknown directive(namespace/name): {}/{}...".format(namespace, directive_name)
+			print "{}Unknown directive(namespace/name):{} {}/{}...".format(shared.bcolors.OKBLUE, shared.bcolors.ENDC, namespace, directive_name)
 			return False
-
-	def process_directive(self, response):
-		print "Processing directive..."
-		self.__directive_dispatcher.processor(response)

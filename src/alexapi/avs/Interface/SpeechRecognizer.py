@@ -24,9 +24,6 @@ class SpeechRecognizer:
 	def __init__(self, avs_interface):
 		self.__avsi = avs_interface
 
-	def getName(self):
-		return 'SpeechRecognizer'
-
 	def Recognize(self):
 		with open('{}recording.wav'.format(shared.tmp_path)) as wav_file:
 			payload = [

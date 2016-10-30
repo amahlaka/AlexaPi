@@ -69,7 +69,6 @@ MIN_VOLUME = 30
 
 def alexa_speech_recognizer():
 	# https://developer.amazon.com/public/solutions/alexa/alexa-voice-service/rest/speechrecognizer-requests
-	if shared.debug: print("{}Sending Speech Request...{}".format(shared.bcolors.OKBLUE, shared.bcolors.ENDC))
 	avs_interface.send_event('SpeechRecognizer', 'Recognize')
 
 def detect_button(channel):
