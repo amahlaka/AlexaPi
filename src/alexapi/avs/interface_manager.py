@@ -56,13 +56,14 @@ class InterfaceManager:
 	def get_avs_session(self):
 		return self.__avs_session.get_avs_session()
 
-	def send_event(self, name_space, event_name):
-		print "Dispatching event: {}...".format(name_space)
-		class_instance = getattr(self, str(name_space), None)
+	def send_event(self, namespace, event_name):
+		print "Dispatching event: {}...".format(namespace)
+		class_instance = getattr(self, str(namespace), None)
 		if class_instance:
 			event_method = getattr(class_instance, str(event_name), None)
 			self.process_directive(event_method())
 		else:
+			print "Unknown event(namespace/name): {}/{}...".format(namespace, event_name)
 			return False
 
 	def dispatch_directive(self, payload=False):
@@ -72,10 +73,11 @@ class InterfaceManager:
 		class_instance = getattr(self, str(namespace), None)
 
 		if class_instance:
-			print "Dispatching directive: {}...".format(namespace)
+			print "Dispatching directive(namespace/name): {}/{}...".format(namespace, directive_name)
 			directive_method = getattr(class_instance, str(directive_name), None)
 			directive_method(payload)
 		else:
+			print "Unknown directive(namespace/name): {}/{}...".format(namespace, directive_name)
 			return False
 
 	def process_directive(self, response):
