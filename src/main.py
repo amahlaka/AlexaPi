@@ -29,8 +29,6 @@ import alexapi.exit_handler as exit_handler
 
 #Setup
 recorded = False
-path = os.path.realpath(__file__).rstrip(os.path.basename(__file__))
-resources_path = os.path.join(path, 'resources', '')
 
 # PocketSphinx configuration
 ps_config = Decoder.default_config()
@@ -81,7 +79,7 @@ def detect_button(channel):
                 button_pressed = True
                 time.sleep(.1)
                 if time.time() - buttonPress > 10: # pressing button for 10 seconds triggers a system halt
-			player.play_avr(resources_path+'alexahalt.mp3')
+			player.play_avr(shared.resources_path+'alexahalt.mp3')
 			if shared.debug: print("{} -- 10 second putton press.  Shutting down. -- {}".format(shared.bcolors.WARNING, shared.bcolors.ENDC))
 			os.system("halt")
         if shared.debug: print("{}Recording Finished.{}".format(shared.bcolors.OKBLUE, shared.bcolors.ENDC))
@@ -139,7 +137,7 @@ def silence_listener(throwaway_frames):
 
 		if shared.debug: print ("Debug: End recording")
 
-		# if shared.debug: player.play_avr(resources_path+'beep.wav', 0, 100)
+		# if shared.debug: player.play_avr(shared.resources_path+'beep.wav', 0, 100)
 
 		shared.led.rec_off()
 		rf = open(shared.tmp_path + 'recording.wav', 'w')
@@ -187,7 +185,7 @@ def start():
 
 				start = time.time()
 				record_audio = True
-				player.play_avr(resources_path+'alexayes.mp3', 0)
+				player.play_avr(shared.resources_path+'alexayes.mp3', 0)
 			elif button_pressed:
 				if player.is_avr_playing or player.is_media_playing(): player.stop_media_player()
 				record_audio = True
@@ -223,7 +221,7 @@ def setup():
 
 	#hardware = hadware.Somthing() #Initialize hardware
 	avs_interface = InterfaceManager()
-	if (shared.silent == False): player.play_avr(resources_path+"hello.mp3")
+	if (shared.silent == False): player.play_avr(shared.resources_path+"hello.mp3")
 
 if __name__ == "__main__":
 	try:

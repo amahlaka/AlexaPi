@@ -3,7 +3,6 @@
 import sys
 import json
 import time
-import socket
 import requests
 import threading
 
@@ -28,7 +27,6 @@ class Http:
 		__interface = None
 		__auth_token = None
 		__session = None
-		__downstream_running = False
 
 		class __Ping:
 			__initialized = False
@@ -83,14 +81,7 @@ class Http:
 			self.__auth_token = self.__authenticate()
 			self.__ping = self.__Ping(self)
 			self.__session = self.__new_session(avs_base_url)
-
-			try:
-				timer = threading.Thread(target=self.__open_downchannel_stream)
-				timer.start()
-			finally:
-				self.__downstream_running = False
-
-			#self.__open_downchannel_stream()
+			self.__open_downchannel_stream()
 			self.__synchronize_state(self.__ping)
 			shared.led.blink_rdy()
 
@@ -136,33 +127,15 @@ class Http:
 			full_url = '{}/{}/directives'.format(avs_base_url, API_VERSION)
 			headers = {"Authorization": "Bearer %s" % self.__auth_token}
 
-			self.__downstream_running = True
-			polling_interval = 3
+			try:
+				response = self.__session.get(full_url, headers=headers, stream=True, timeout=None)
 
-			while self.__downstream_running:
-				response = False
-				start = time.clock()
+			except Exception as e:
+				print "{}(): Could not open AVS downchannel stream - {}".format(currentFuncName, full_url)
+				print "error: %s" % e
+				return False
 
-				try:
-					response = self.__session.get(full_url, headers=headers, stream=True, timeout=None)
-					print 'Downchannel response: %s' % (response.raw.read(10))
-
-				#except Exception as e:
-				#	print "Could not open AVS downchannel stream - {}".format(full_url)
-				#	print "error: %s" % e
-				#	print sys.exc_info()
-				except:
-					pass
-
-				work_duration = time.clock() - start
-				print work_duration
-				time.sleep(polling_interval - work_duration) # ensures polling_interval
-
-			print 'Shutting down Downstream...'
-
-		def __get_data(self, response, **kwargs):
-			print response
-			self.__interface.process_directive(response)
+			return True
 
 		def __synchronize_state(self, ping):
 			full_url = '{}/{}/events'.format(avs_base_url, API_VERSION)
@@ -185,9 +158,6 @@ class Http:
 
 		def get_pinger(self):
 			return self.__ping
-
-		def stop_downstream(self):
-			self.__downstream_running = False
 
 		def get_auth_token(self):
 			return self.__auth_token
@@ -229,7 +199,3 @@ class Http:
 
 	def close(self):
 		self.__avs_session.get_pinger().stop()
-		self.__avs_session.stop_downstream()
-
-	#def send_event(self, API):
-	#	self.__interface.process_event(API)

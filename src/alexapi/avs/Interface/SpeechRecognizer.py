@@ -34,6 +34,3 @@ class SpeechRecognizer:
 			response = self.__avsi.get_avs_session().post(path, payload)
 
 		return response
-
-	def process(self):
-		print("{}Processing Request Response...{}".format(shared.bcolors.OKBLUE, shared.bcolors.ENDC))

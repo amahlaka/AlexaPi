@@ -30,6 +30,27 @@ class AudioPlayer:
 		#pThread = threading.Thread(target=player.play_avr, args=(filename, self.__playerCallback, ))
 		#pThread.start()
 
+	def Stop(self, payload):
+		pThread = threading.Thread(target=player.stop_media_player)
+		pThread.start()
+
+	def Play(self, payload):
+		#https://developer.amazon.com/public/solutions/alexa/alexa-voice-service/reference/audioplayer#play
+		play_behavior = payload.json['directive']['payload']['playBehavior']
+		url           = payload.json['directive']['payload']['audioItem']['stream']['url']
+		nav_token     = payload.json['directive']['payload']['audioItem']['stream']['token']
+		streamFormat  = payload.json['directive']['payload']['audioItem']['stream']['streamFormat']
+		offset        = payload.json['directive']['payload']['audioItem']['stream']['offsetInMilliseconds']
+
+		if url.startswith("cid:"):
+			content = "file://" + payload.filename
+		else:
+			content = stream['streamUrl']
+
+		pThread = threading.Thread(target=player.play_media, args=(content, offset))
+		pThread.start()
+		#pThread = threading.Thread(target=player.play_avr, args=(filename, self.__playerCallback, ))
+
 	def PlaybackStarted(self):
 		j = {
 			"event": {

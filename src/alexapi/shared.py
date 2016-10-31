@@ -1,4 +1,7 @@
+#alexapi/shared.py
+
 import os
+import sys
 import time
 import yaml
 import config
@@ -27,6 +30,7 @@ parser.add_option('-s', '--silent',
                 default=False,
                 help="start without saying hello"
                 )
+
 parser.add_option('-d', '--debug',
                 dest="debug",
                 action="store_true",
@@ -38,11 +42,13 @@ cmdopts, cmdargs = parser.parse_args()
 silent = cmdopts.silent
 debug = cmdopts.debug
 
+#path = os.path.realpath(__file__).rstrip(os.path.basename(__file__))
+path = os.path.dirname(sys.modules['__main__'].__file__)
+resources_path = os.path.join(path, 'resources', '')
 tmp_path = os.path.join(tempfile.mkdtemp(prefix='AlexaPi-runtime-'), '')
 
 with open(config.filename, 'r') as stream:
         config = yaml.load(stream)
-
 
 class __GPIO:
 	def __init__(self):

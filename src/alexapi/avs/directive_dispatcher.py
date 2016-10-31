@@ -19,12 +19,19 @@ class DirectiveDispatcher:
 		self.__payload =  interface_manager.Payload
 
 	def find_attachement(self, payload, directive):
-		if "format" in directive['directive']['payload'] and directive['directive']['payload']['format'] == 'AUDIO_MPEG':
+		def get_attachement(url):
 			for msg in payload:
 				if msg.get_content_type() == "application/octet-stream":
 					content_id = msg.get('Content-ID').strip("<>")
-					if content_id == directive['directive']['payload']['url'].lstrip('cid:'):
+					if content_id == url.lstrip('cid:'):
 						return msg
+
+		if "format" in directive['directive']['payload'] and directive['directive']['payload']['format'] == 'AUDIO_MPEG':
+			return get_attachement(directive['directive']['payload'] and directive['directive']['payload']['url'])
+
+		elif "streamFormat" in directive['directive']['payload']['audioItem']['stream'] and directive['directive']['payload']['audioItem']['stream']['streamFormat'] == 'AUDIO_MPEG':
+			return get_attachement(directive['directive']['payload']['audioItem']['stream']['url'])
+
 		return False
 
 	def alexa_getnextitem(nav_token):
@@ -105,25 +112,31 @@ class DirectiveDispatcher:
 		if r and r.status_code == 200:
 			data = "Content-Type: " + r.headers['content-type'] +'\r\n\r\n'+ r.content
 			msg = email.message_from_string(data)
-			filename = False
-			j = False
 
 			for payload in msg.get_payload():
 				if payload.get_content_type() == "application/json":
 					j = json.loads(payload.get_payload())
-					if shared.debug: print("{}JSON String Returned:{} {}".format(shared.bcolors.OKBLUE, shared.bcolors.ENDC, json.dumps(j)))
+					if shared.debug: print("\n{}JSON String Returned:{} {}".format(shared.bcolors.OKBLUE, shared.bcolors.ENDC, json.dumps(j)))
 
 					binary = self.find_attachement(msg.get_payload(), j)
 					if binary:
 						filename = shared.tmp_path + binary.get('Content-ID').strip("<>")+".mp3"
 						with open(filename, 'wb') as f:
+							print
+							print 'Saving payload: %s' % filename
+							print
 							f.write(binary.get_payload())
+					else:
+						filename = False
 
-					self.__payload.filename = filename
 					self.__payload.json = j
+					self.__payload.filename = filename
 					self.__interface_manager.dispatch_directive(self.__payload)
-					return
 
+			#continue
+
+			return
+			'''
 					# Now process the response
 					if 'directive' in j:
 						directive = j['directive']['header']['namespace']
@@ -193,8 +206,8 @@ class DirectiveDispatcher:
 								content = stream['streamUrl']
 							pThread = threading.Thread(target=player.play_media, args=(content, stream['offsetInMilliseconds']))
 							pThread.start()
-
 			return
+		'''
 
 		elif r and r.status_code == 204:
 			shared.led.rec_off()
@@ -202,9 +215,10 @@ class DirectiveDispatcher:
 			if shared.debug: print("{}Request Response is null {}(This is OKAY!){}".format(shared.bcolors.OKBLUE, shared.bcolors.OKGREEN, shared.bcolors.ENDC))
 
 		else:
+			player.play_avr(shared.resources_path+'error.mp3', 0)
 			if r:
 				print("{}(process_response Error){} Status Code: {} - {}".format(shared.bcolors.WARNING, shared.bcolors.ENDC, r.status_code, r.text))
-				r.close()
+				#r.close()
 
 			shared.led.status_off()
 			shared.led.blink_valid_data_received()

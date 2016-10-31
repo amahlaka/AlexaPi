@@ -1,4 +1,4 @@
-#alexapi/AVS/interface_manager.py
+#alexapi/avs/interface_manager.py
 
 import os
 
@@ -56,18 +56,20 @@ class InterfaceManager:
 	def get_avs_session(self):
 		return self.__avs_session.get_avs_session()
 
-	def process_directive(self, response):
-		self.__directive_dispatcher.processor(response)
-
 	def send_event(self, namespace, event_name):
 		class_instance = getattr(self, str(namespace), None)
 		if class_instance:
-			print "{}Dispatching event(namespace/name):{} {}/{}...".format(shared.bcolors.OKBLUE, shared.bcolors.ENDC, namespace, event_name)
 			event_method = getattr(class_instance, str(event_name), None)
-			self.process_directive(event_method())
-		else:
-			print "{}Unknown event(namespace/name):{} {}/{}...".format(shared.bcolors.OKBLUE, shared.bcolors.ENDC, namespace, event_name)
-			return False
+			if event_method:
+				print "{}Dispatching event(namespace/name):{} {}/{}...".format(shared.bcolors.OKBLUE, shared.bcolors.ENDC, namespace, event_name)
+				self.process_directive(event_method())
+				return True
+
+		print "{}Unknown event(namespace/name):{} {}/{}...".format(shared.bcolors.FAIL, shared.bcolors.ENDC, namespace, event_name)
+		return False
+
+	def process_directive(self, response):
+		self.__directive_dispatcher.processor(response)
 
 	def dispatch_directive(self, payload=False):
 		namespace = payload.json['directive']['header']['namespace']
@@ -76,9 +78,11 @@ class InterfaceManager:
 		class_instance = getattr(self, str(namespace), None)
 
 		if class_instance:
-			print "{}Dispatching directive(namespace/name):{} {}/{}...".format(shared.bcolors.OKBLUE, shared.bcolors.ENDC, namespace, directive_name)
-			directive_method = getattr(class_instance, str(directive_name), None)
-			directive_method(payload)
-		else:
-			print "{}Unknown directive(namespace/name):{} {}/{}...".format(shared.bcolors.OKBLUE, shared.bcolors.ENDC, namespace, directive_name)
-			return False
+			directive_method = getattr(class_instance, str(directive_name), False)
+			if directive_method:
+				print "{}Dispatching directive(namespace/name):{} {}/{}...".format(shared.bcolors.OKBLUE, shared.bcolors.ENDC, namespace, directive_name)
+				directive_method(payload)
+				return True
+
+		print "{}Unknown directive(namespace/name):{} {}/{}...".format(shared.bcolors.FAIL, shared.bcolors.ENDC, namespace, directive_name)
+		return False

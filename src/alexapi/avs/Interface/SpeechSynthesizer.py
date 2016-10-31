@@ -1,4 +1,4 @@
-#alexapi/AVS/Interface/SpeechSynthesizer.py
+#alexapi/avs/Interface/SpeechSynthesizer.py
 
 import json
 import uuid
@@ -27,8 +27,7 @@ class SpeechSynthesizer:
 		self.__token = payload.json['directive']['payload']['token']
 
 		filename = "file://" + payload.filename
-		pThread = threading.Thread(target=player.play_avr, args=(filename, self.__playerCallback, ))
-		pThread.start()
+		player.play_avr(filename, self.__playerCallback)
 
 	def SpeechStarted(self):
 		j = {
