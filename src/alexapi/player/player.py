@@ -17,15 +17,6 @@ media_playing = False
 media_paused = False
 
 class PlayerState:
-	class MediaInfo:
-		content = None
-		token = None
-		play_behavior = None
-		url = None
-		nav_token = None
-		streamFormat = None
-		offset = None
-
 	__mediaInfo = {}
 	nav_token = "" #TODO: remove "" checks in callback
 	streamurl = ""
@@ -37,6 +28,17 @@ class PlayerState:
 	currentItem = False
 	overRideVolume = 0
 	queue_almost_empty = False
+
+	class MediaInfo:
+		content = None
+		token = None
+		play_behavior = None
+		url = None
+		nav_token = None
+		streamFormat = None
+		offset = None
+
+
 
 	def clr_mediaInfo(self):
 		self.__mediaInfo.clear()
@@ -79,6 +81,7 @@ class AlexaVoiceResponsePlayer(object):
 	def play(self, file, callback=False, overRideVolume=0):
 		global avr_playing
 		if debug: print("\n{}Alexa Voice Response_Player Request for:{} {}".format(bcolors.OKBLUE, bcolors.ENDC, file))
+		print "************"
 		led.status_on()
 
 		self.player = self.instance.media_player_new()
@@ -94,6 +97,7 @@ class AlexaVoiceResponsePlayer(object):
 			self.player.audio_set_volume(overRideVolume)
 
 		self.player.play()
+		print "************"
 		time.sleep(.1) # Allow time for state_callback to run
 
 		while avr_playing:
@@ -129,30 +133,30 @@ class AlexaVoiceResponsePlayer(object):
 		if debug: print("{}Alexa Repsonse Player State:{} {}".format(bcolors.OKGREEN, bcolors.ENDC, state))
 		if state == 3:		#Playing
 			avr_playing = True
-			if pstate.streamid != "":
-				rThread = threading.Thread(target=alexa_playback_progress_report_request, args=("STARTED", "PLAYING", pstate.streamid))
-				rThread.start()
+			#if pstate.streamid != "":
+			#	rThread = threading.Thread(target=alexa_playback_progress_report_request, args=("STARTED", "PLAYING", pstate.streamid))
+			#	rThread.start()
 
 		elif state == 5:	#Stopped
 			avr_playing = False
-			if pstate.streamid != "":
-				rThread = threading.Thread(target=alexa_playback_progress_report_request, args=("INTERRUPTED", "IDLE", pstate.streamid))
-				rThread.start()
-			pstate.streamurl = ""
-			pstate.streamid = ""
-			pstate.nav_token = ""
+			#if pstate.streamid != "":
+			#	rThread = threading.Thread(target=alexa_playback_progress_report_request, args=("INTERRUPTED", "IDLE", pstate.streamid))
+			#	rThread.start()
+			#pstate.streamurl = ""
+			#pstate.streamid = ""
+			#pstate.nav_token = ""
 
 		elif state == 6:	#Ended
 			avr_playing = False
-			if pstate.streamid != "":
-				rThread = threading.Thread(target=alexa_playback_progress_report_request, args=("FINISHED", "IDLE", pstate.streamid))
-				rThread.start()
-				pstate.streamid = ""
+			#if pstate.streamid != "":
+			#	rThread = threading.Thread(target=alexa_playback_progress_report_request, args=("FINISHED", "IDLE", pstate.streamid))
+			#	rThread.start()
+			#	pstate.streamid = ""
 
-			if pstate.streamurl != "":
-				pThread = threading.Thread(target=play, args=(pstate.streamurl,))
-				pThread.start()
-				pstate.streamurl = ""
+			#if pstate.streamurl != "":
+			#	pThread = threading.Thread(target=play, args=(pstate.streamurl,))
+			#	pThread.start()
+			#	pstate.streamurl = ""
 
 			#elif pstate.nav_token != "":
 			#	gThread = threading.Thread(target=alexa_getnextitem, args=(pstate.nav_token,))
@@ -160,13 +164,13 @@ class AlexaVoiceResponsePlayer(object):
 
 		elif state == 7:
 			avr_playing = False
-			if pstate.streamid != "":
-				rThread = threading.Thread(target=alexa_playback_progress_report_request, args=("ERROR", "IDLE", pstate.streamid))
-				rThread.start()
+			#if pstate.streamid != "":
+			#	rThread = threading.Thread(target=alexa_playback_progress_report_request, args=("ERROR", "IDLE", pstate.streamid))
+			#	rThread.start()
 
-			pstate.streamurl = ""
-			pstate.streamid = ""
-			pstate.nav_token = ""
+			#pstate.streamurl = ""
+			#pstate.streamid = ""
+			#pstate.nav_token = ""
 
 		if callback:
 			callback(state)
@@ -322,7 +326,9 @@ def setup(playback_progress_report_request, getnextitem, tplaylist):	#TODO:I'm s
 """
 Audio Player Methods
 """
-#def play_media(file, offset=0, overRideVolume=0, callback=False):
+def play_avr(nav_token, callback=False):
+	media_player.queue_and_play(nav_token, callback)
+
 def play_media(nav_token, callback=False):
 	media_player.queue_and_play(nav_token, callback)
 

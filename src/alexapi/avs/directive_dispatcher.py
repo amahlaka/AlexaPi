@@ -107,11 +107,17 @@ class DirectiveDispatcher:
 		return ""
 
 	def processor(self, r):
-		#print("{}Processing Request Response...{}".format(shared.bcolors.OKBLUE, shared.bcolors.ENDC))
-
 		if r and r.status_code == 200:
 			data = "Content-Type: " + r.headers['content-type'] +'\r\n\r\n'+ r.content
 			msg = email.message_from_string(data)
+
+			count = len(msg)
+			print '\n{}{}Received {}'.format(shared.bcolors.OKBLUE, shared.bcolors.BOLD, count),
+
+			if count == 1:
+				print ('{}{}response...{}'.format(shared.bcolors.OKBLUE, shared.bcolors.BOLD, shared.bcolors.ENDC))
+			else:
+				print ('{}{}responses...{}'.format(shared.bcolors.OKBLUE, shared.bcolors.BOLD, shared.bcolors.ENDC))
 
 			for payload in msg.get_payload():
 				if payload.get_content_type() == "application/json":

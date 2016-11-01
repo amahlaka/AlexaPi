@@ -23,10 +23,14 @@ class SpeechSynthesizer:
 			self.SpeechFinished()
 
 	def Speak(self, payload):
-		self.__token = payload.json['directive']['payload']['token']
+		token = payload.json['directive']['payload']['token']
+		content = "file://" + payload.filename
+		#player.pstate.add_avrInfo(nav_token=nav_token, offset=offset, streamFormat=streamFormat, url=url, play_behavior=play_behavior, content=content)
+		player.play_avr(content, self.__playerCallback)
 
-		filename = "file://" + payload.filename
-		player.play_avr(filename, self.__playerCallback)
+		#player.pstate.add_mediaInfo(nav_token=nav_token, offset=offset, streamFormat=streamFormat, url=url, play_behavior=play_behavior, content=content)
+		#pThread = threading.Thread(target=player.play_media, args=(nav_token, self.__playerCallback, )) #TODO: Is nav_token unique
+		#pThread.start()
 
 	def SpeechStarted(self):
 		j = {
