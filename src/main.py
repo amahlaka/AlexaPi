@@ -109,7 +109,6 @@ def silence_listener(throwaway_frames):
 			frames = frames + 1
 			if l:
 				audio += data
-				isSpeech = vad.is_speech(data, VAD_SAMPLERATE)
 
 		# now do VAD
 		while button_pressed == True or ((thresholdSilenceMet == False) and ((time.time() - start) < MAX_RECORDING_LENGTH)):

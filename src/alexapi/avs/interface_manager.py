@@ -1,6 +1,7 @@
 #alexapi/avs/interface_manager.py
 
 import os
+import threading
 
 import alexapi.shared as shared
 from alexapi.avs.directive_dispatcher import DirectiveDispatcher
@@ -61,17 +62,14 @@ class InterfaceManager:
 		if class_instance:
 			event_method = getattr(class_instance, str(event_name), None)
 			if event_method:
-				print "{}Dispatching event(namespace/name):{} {}/{}...".format(shared.bcolors.OKBLUE, shared.bcolors.ENDC, namespace, event_name)
-				self.process_directive(event_method())
-				return True
+				print "\n\n\n{}{}Dispatching event(namespace/name):{} {}/{}...".format(shared.bcolors.BOLD, shared.bcolors.OKBLUE, shared.bcolors.ENDC, namespace, event_name)
+				gThread = threading.Thread(target=self.__directive_dispatcher.processor, args=(event_method(),))
+				gThread.start()
+				return
 
-		print "{}Unknown event(namespace/name):{} {}/{}...".format(shared.bcolors.FAIL, shared.bcolors.ENDC, namespace, event_name)
-		return False
+		print "\n\n{}Unknown event(namespace/name):{} {}/{}\n\n".format(shared.bcolors.FAIL, shared.bcolors.ENDC, namespace, event_name)
 
-	def process_directive(self, response):
-		self.__directive_dispatcher.processor(response)
-
-	def dispatch_directive(self, payload=False):
+	def dispatch_interface(self, payload=False):
 		namespace = payload.json['directive']['header']['namespace']
 		directive_name = payload.json['directive']['header']['name']
 
@@ -80,9 +78,13 @@ class InterfaceManager:
 		if class_instance:
 			directive_method = getattr(class_instance, str(directive_name), False)
 			if directive_method:
-				print "{}Dispatching directive(namespace/name):{} {}/{}...".format(shared.bcolors.OKBLUE, shared.bcolors.ENDC, namespace, directive_name)
-				directive_method(payload)
-				return True
+				print "\n\n\n{}{}Dispatching directive(namespace/name):{} {}/{}...".format(shared.bcolors.BOLD, shared.bcolors.OKBLUE, shared.bcolors.ENDC, namespace, directive_name)
+				gThread = threading.Thread(target=directive_method, args=(payload,))
+				gThread.start()
+				return
 
-		print "{}Unknown directive(namespace/name):{} {}/{}...".format(shared.bcolors.FAIL, shared.bcolors.ENDC, namespace, directive_name)
-		return False
+		print "\n\n{}Unknown directive(namespace/name):{} {}/{}\n\n".format(shared.bcolors.FAIL, shared.bcolors.ENDC, namespace, directive_name)
+
+	def process_response(self, response):
+		gThread = threading.Thread(target=self.__directive_dispatcher.processor, args=(response,))
+		gThread.start()

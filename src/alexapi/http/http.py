@@ -13,9 +13,9 @@ import alexapi.shared as shared
 from helper.thread import thread_manager
 
 
-API_VERSION = 'v20160207'
-avs_auth_url = 'https://api.amazon.com'
-avs_base_url = 'https://avs-alexa-na.amazon.com'
+avs_auth_url = shared.config['alexa']['AuthUrl']
+avs_base_url = shared.config['alexa']['BaseUrl']
+API_VERSION = shared.config['alexa']['API_Version']
 servers = ["127.0.0.1:11211"]
 mc = Client(servers, debug=1)
 currentFuncName = lambda n=0: sys._getframe(n + 1).f_code.co_name #TODO: Add to debug class
@@ -56,20 +56,23 @@ class Http:
 								return True
 
 						end_time = time.time()
-						time.sleep(1 - (end_time - start_time))
+						elapsed_time = 1 - (end_time - start_time)
+						if elapsed_time > 0:
+							time.sleep(1 - (end_time - start_time))
 						count += 1
 
 				while True:
 					try:
+						r = False
 						if pause():
 							return
 						print
-						print 'Pinging...'
+						print 'Pinging AVS...'
 						print
 						r = self.__session.get('/ping')
 
 					except Exception as e:
-						print "ping(): could not ping /ping"
+						print "ping(): could not ping - response: %s" % r
 						print "error: %s" % e
 
 			def start(self, interval=False):
@@ -175,6 +178,8 @@ class Http:
 		def post(self, path, payload=False):
 			full_url = avs_base_url + path
 			headers = {"Authorization": "Bearer %s" % self.__auth_token}
+
+			if shared.debug: print("\n{}<-{}{}JSON String Sent:{} {}".format(shared.bcolors.BOLD, shared.bcolors.ENDC, shared.bcolors.OKBLUE, shared.bcolors.ENDC, payload[0][1][1]))
 
 			try:
 				request = self.__session.post(full_url, headers=headers, files=payload, stream=True, timeout=None)
