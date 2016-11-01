@@ -6,7 +6,6 @@ import threading
 
 import alexapi.shared as shared
 import alexapi.player.player as player
-import alexapi.player.player_state as pstate
 
 class SpeechSynthesizer:
 	__avsi = None

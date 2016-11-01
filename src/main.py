@@ -21,11 +21,10 @@ from pocketsphinx import get_model_path
 from pocketsphinx.pocketsphinx import *
 from sphinxbase.sphinxbase import *
 
-from alexapi.avs.interface_manager import InterfaceManager
 import alexapi.shared as shared
 import alexapi.player.player as player
-import alexapi.player.player_state as pstate
-import alexapi.exit_handler as exit_handler
+import helper.exit_handler as exit_handler
+from alexapi.avs.interface_manager import InterfaceManager
 
 #Setup
 recorded = False

@@ -6,7 +6,6 @@ import threading
 from collections import deque
 
 from alexapi.shared import *
-import alexapi.player.player_state as pstate
 
 player = None
 alexa_playback_progress_report_request = None
@@ -16,6 +15,15 @@ tuneinplaylist = None
 avr_playing = False
 media_playing = False
 media_paused = False
+
+class PlayerState:
+	nav_token = ""
+	streamurl = ""
+	streamid = ""
+	audioplaying = False
+	currVolume = 100
+	queue_position = 0
+	queueplaying = False
 
 class AlexaVoiceResponsePlayer(object):
 	instance = None
@@ -305,3 +313,7 @@ def stop_avr():
 
 def is_avr_playing():
 	return alexa_voice_response_player.is_playing()
+
+
+
+pstate = PlayerState()

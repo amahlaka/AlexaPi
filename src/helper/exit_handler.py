@@ -2,7 +2,8 @@ import sys
 import signal
 import shutil
 
-import shared as shared
+import alexapi.shared as shared
+from helper.thread import thread_manager
 
 class CleanUp:
 	__session = False
@@ -15,7 +16,7 @@ class CleanUp:
 	def cleanup(self, signal=False, frame=False):
 		if not self.__executed:
 			print "Exiting..."
-
+			thread_manager.stop_all()
 			shutil.rmtree(shared.tmp_path)
 			self.__executed = True
 

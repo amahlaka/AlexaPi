@@ -10,6 +10,7 @@ from memcache import Client
 from hyper.contrib import HTTP20Adapter
 
 import alexapi.shared as shared
+from helper.thread import thread_manager
 
 
 API_VERSION = 'v20160207'
@@ -38,38 +39,47 @@ class Http:
 				try:
 					self.__session = session
 					self.__initialized = True
-				finally:
+
+				except (KeyboardInterrupt, SystemExit):
+					print 'Exiting...'
 					if self.__initialized: self.stop()
+
+			def ping(self):
+				def pause():
+					count = 0
+					while count < self.__interval:
+						start_time = time.time()
+
+						for number in range(8):
+							time.sleep(.1)
+							if self.__stop:
+								return True
+
+						end_time = time.time()
+						time.sleep(1 - (end_time - start_time))
+						count += 1
+
+				while True:
+					try:
+						if pause():
+							return
+						print
+						print 'Pinging...'
+						print
+						r = self.__session.get('/ping')
+
+					except Exception as e:
+						print "ping(): could not ping /ping"
+						print "error: %s" % e
 
 			def start(self, interval=False):
 				if interval:
 					self.__interval = interval
 
-				timer = threading.Thread(target=self.ping)
-				timer.start()
+				thread_manager.start(self.ping, self.stop)
 
 			def stop(self):
 				self.__stop = True
-
-			def ping(self):
-				count = 0
-				timeout = self.__interval * 10
-
-				while True:
-					count = 0
-
-					try:
-						r = self.__session.get('/ping')
-
-					except Exception as e:
-						print "ping(): could not fetch %s" % path
-						print "error: %s" % e
-
-					while count < self.__interval:
-						time.sleep(.1)
-						if self.__stop:
-							return
-						count += 1
 
 		def __init__(self, interface):
 			# Initialize per: https://developer.amazon.com/public/solutions/alexa/alexa-voice-service/docs/managing-an-http-2-connection#prerequisites
