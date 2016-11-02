@@ -78,7 +78,7 @@ def detect_button(channel):
                 button_pressed = True
                 time.sleep(.1)
                 if time.time() - buttonPress > 10: # pressing button for 10 seconds triggers a system halt
-			player.play_avr(shared.resources_path+'alexahalt.mp3')
+			player.say(shared.resources_path+'alexahalt.mp3')
 			if shared.debug: print("{} -- 10 second putton press.  Shutting down. -- {}".format(shared.bcolors.WARNING, shared.bcolors.ENDC))
 			os.system("halt")
         if shared.debug: print("{}Recording Finished.{}".format(shared.bcolors.OKBLUE, shared.bcolors.ENDC))
@@ -135,7 +135,7 @@ def silence_listener(throwaway_frames):
 
 		if shared.debug: print ("Debug: End recording")
 
-		# if shared.debug: player.play_avr(shared.resources_path+'beep.wav', 0, 100)
+		# if shared.debug: player.say(shared.resources_path+'beep.wav', 0, 100)
 
 		shared.led.rec_off()
 		rf = open(shared.tmp_path + 'recording.wav', 'w')
@@ -173,19 +173,20 @@ def start():
 
 			# if trigger word was said
 			if decoder.hyp() != None:
-				if player.is_avr_playing():
-					player.stop_avr()
+				if player.is_playing():
+					player.stop()
 					time.sleep(.5) #add delay before audio prompt
 
-				if player.is_media_playing():
-					player.stop_media_player()
+				if player.is_playing():
+					player.stop_player()
 					time.sleep(.5) #add delay before audio prompt
 
 				start = time.time()
 				record_audio = True
-				player.play_avr(shared.resources_path+'alexayes.mp3', 0)
+				player.say(shared.resources_path+'alexayes.mp3', 0)
+
 			elif button_pressed:
-				if player.is_avr_playing or player.is_media_playing(): player.stop_media_player()
+				if player.is_playing: player.stop()
 				record_audio = True
 
 		# do the following things if either the button has been pressed or the trigger word has been said
@@ -219,7 +220,7 @@ def setup():
 
 	#hardware = hadware.Somthing() #Initialize hardware
 	avs_interface = InterfaceManager()
-	if (shared.silent == False): player.play_avr(shared.resources_path+"hello.mp3")
+	if (shared.silent == False): player.say(shared.resources_path+"hello.mp3")
 
 if __name__ == "__main__":
 	try:
