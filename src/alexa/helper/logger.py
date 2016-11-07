@@ -2,13 +2,14 @@ import sys
 import logging
 
 class _RootLogger:
-	def __init__(self, config):
+	def __init__(self, config, log_file):
 		self._logger = logging.getLogger()
 
 		# create a file handler
-		#handler = logging.FileHandler('hello.log')
-		handler = logging.StreamHandler(sys.stdout)
-		#handler.setLevel(logging.INFO)
+		if not log_file:
+			handler = logging.StreamHandler(sys.stdout)
+		else:
+			handler = logging.FileHandler('/var/log/Alexa.log')
 
 		# create a logging format
 		formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -67,8 +68,8 @@ class _RootLogger:
 		elif name == 'debug':
 			return logging.DEBUG
 
-def logger_initialize(configuration):
-	_RootLogger(configuration) #Initialize logger
+def logger_initialize(configuration, log_file=False):
+	_RootLogger(configuration, log_file) #Initialize logger
 
 def logger(name):
 	return logging.getLogger(name)

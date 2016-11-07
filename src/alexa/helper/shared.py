@@ -14,11 +14,9 @@ ROOT_DIR = os.path.dirname(os.path.abspath('./src'))
 resources_path = os.path.join(ROOT_DIR, 'resources', '')
 tmp_path = os.path.join(tempfile.mkdtemp(prefix='AlexaPi-runtime-'), '')
 
+#Get config
 if config and 'debug' in config and 'alexa' in config['debug']:
 	if config['debug']['alexa']: debug = True
-
-#Intialize logging
-logger_initialize(config)
 
 #Get arguments
 parser = optparse.OptionParser()
@@ -29,8 +27,20 @@ parser.add_option('-s', '--silent',
                 help="start without saying hello"
                 )
 
+parser.add_option('-l', '--logfile',
+                dest="logfile",
+                action="store_true",
+                default=False,
+                help="create log file in /var/log/Alexa.log"
+                )
+
 cmdopts, cmdargs = parser.parse_args()
 silent = cmdopts.silent
+logfile = cmdopts.logfile
+
+#Intialize logging
+logger_initialize(config, logfile)
+
 
 class bcolors:
         HEADER = '\033[95m'
