@@ -1,20 +1,21 @@
 #alexapi/avs/directive_dispatcher.py
 
+import time
 import json
 import email
 
 import alexa.helper.shared as shared
-import alexa.player.player as player
+from alexa.player.player import player
 
 log = shared.logger(__name__)
 
 class DirectiveDispatcher:
-	__interface_manager = None
-	__payload = None
+	_interface_manager = None
+	_payload = None
 
 	def __init__(self, interface_manager):
-		self.__interface_manager = interface_manager
-		self.__payload =  interface_manager.Payload
+		self._interface_manager = interface_manager
+		self._payload =  interface_manager.Payload
 
 	def find_attachement(self, payload, directive):
 		def get_attachement(url):
@@ -58,9 +59,10 @@ class DirectiveDispatcher:
 					else:
 						filename = False
 
-					self.__payload.json = j
-					self.__payload.filename = filename
-					self.__interface_manager.dispatch_interface(self.__payload)
+					self._payload.json = j
+					self._payload.filename = filename
+					self._interface_manager.dispatch_interface(self._payload)
+					time.sleep(.5) #Need a pause to prevent audio race condition
 
 			return
 

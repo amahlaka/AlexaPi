@@ -41,75 +41,6 @@ class PlaybackDataContainer(object):
 	def data(self):
 		return self._data
 
-
-class _DynamicVariable:
-	_dict = {}
-	_is_simple = False
-
-	class _DataStore:
-		pass
-
-	def __init__(self, is_simple=False):
-		if is_simple:
-			self._is_simple = is_simple
-		else:
-			self._is_simple = is_simple
-
-
-	def complex_add(self, **kwargs):
-		ds = self._DataStore()
-		for k,v in kwargs.iteritems():
-			setattr(ds, k, v)
-
-		if not ds.key:
-			raise NotImplementedError('A unique key called "token" is required!')
-
-		log.debug('Key: %s' % ds.key)
-		for k,v in kwargs.iteritems():
-			log.debug('Setting: %s = %s' % (k, v))
-		log.info('')
-
-		return self._dict.update({ds.key:ds})
-
-	def complex_get(self, key, item):
-		ds = getattr(self._dict[key], item, False)
-		if not ds:
-			raise NotImplementedError('%s - does not exist!', item)
-		return ds
-
-	def simple_add(self, **kwargs):
-		for k,v in kwargs.iteritems():
-			self._dict[k] = v
-
-		for k,v in kwargs.iteritems():
-			log.debug('Dict: %s = %s' % (k, v))
-		log.debug('')
-
-		return
-
-
-	def simple_get(self, key):
-		return self._dict[key]
-
-	def clr(self):
-		self._dict.clear()
-
-	def get(self, key, item=None):
-		if self._is_simple:
-			return self.simple_get(key)
-		else:
-			return self.complex_get(key, item)
-
-	def add(self, **kwargs):
-		if self._is_simple:
-			return self.simple_add(**kwargs)
-		else:
-			return self.complex_add(**kwargs)
-
-	def rm(self, key):
-		value = dict(self._dict)
-		del value[key]
-
 class MediaPlayer():
 	avs_playback = PlaybackDataContainer(is_playing=False, is_paused=False, vlc_player=None, interface_callback=None)
 	package = None
@@ -198,36 +129,33 @@ class MediaPlayer():
 
 		log.debug("{}Media Player State:{} {}/{}".format(shared.bcolors.OKGREEN, shared.bcolors.ENDC, vlc_state, caller_name))
 
-		if vlc_state == 3:	#Playing
+		if vlc_state == vlc.State.Playing:	#Playing
 			playback.data['is_playing'] = True
 			playback.data['is_paused'] = False
 
 			if not self._queue.getItemCount() == 0 and playback.data['queue_almost_empty']: #Send playback almost empty
 				playback.data['interface_callback'](8)
 
-		elif vlc_state == 4:	#Paused
+		elif vlc_state == vlc.State.Paused:	#Paused
 			playback.data['is_playing'] = False
 			playback.data['is_paused'] = True
 
-		elif vlc_state == 5:	#Stopped
+		elif vlc_state == vlc.State.Stopped:	#Stopped
 			playback.data['is_playing'] = False
 
-		elif vlc_state == 6:	#Ended
+		elif vlc_state == vlc.State.Ended:	#Ended
 			playback.data['is_playing'] = False
 
-			if playback.data['playback_type'] == 'remote' and self._queue.getItemCount() == 0:
-				log.debug('Clearing...')
-				self.package.clr()
-				gstate.current_item = ''
+			#if playback.data['playback_type'] == 'remote' and self._queue.getItemCount() == 0:
+			#	log.debug('Clearing...')
+			#	self.package.clr()
+			#	gstate.current_item = ''
 
-		elif vlc_state == 7:	#Error
+		elif vlc_state == vlc.State.Error:	#Error
 			playback.data['is_playing'] = False
 			playback.data['is_paused'] = False
 
-
-		print '---------' + str(playback.data['interface_callback'])
 		if playback.data['interface_callback'] is not None:
-			print '---------' + str(playback.data['interface_callback'])
 			playback.data['interface_callback'](vlc_state)
 
 	def _tuneinplaylist(self, url):
@@ -278,10 +206,10 @@ class MediaPlayer():
 			self.avs_playback.data['type'] = 'remote'
 
 			if self.avs_playback.data['is_playing'] is False and self.avs_playback.data['is_paused'] is False:
-				self.avs_playback.data['token'] = token
-				self.avs_playback.data['interface_callback'] = interface_callback
 				self.avs_playback.data['is_playing'] = True
 				self.avs_playback.data['is_paused'] = False
+				self.avs_playback.data['token'] = token
+				self.avs_playback.data['interface_callback'] = interface_callback
 
 				gstate.current_token = token
 

@@ -1,19 +1,9 @@
 #! /usr/bin/env python
 
-import re
 import os
-import cgi
 import sys
 import time
-import json
-import wave
-import email
-import getch
-import random
-import datetime
-import requests
 import alsaaudio
-import fileinput
 import webrtcvad
 import traceback
 
