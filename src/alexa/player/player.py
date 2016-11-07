@@ -193,7 +193,7 @@ class MediaPlayer():
 			time.sleep(.1) # Allow time for state_callback to run
 
 			while playback.data['is_playing']: #Wait until current media clip is done playing
-				time.sleep(.5) #Prevent 100% CPU untilzation and adds a slight pause between alexa responses
+				time.sleep(.1) #Prevent 100% CPU untilzation and adds a slight pause between alexa responses
 				continue
 
 	def play_avs_response(self, token, interface_callback=False, override_volume=0):

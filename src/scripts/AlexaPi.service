@@ -11,7 +11,7 @@ After=network.target network-online.target sound.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/python /opt/AlexaPi/src/main.py
+ExecStart=/usr/bin/python /opt/AlexaPi/src/main.py -l
 
 User=alexapi
 Group=alexapi
@@ -19,7 +19,7 @@ Group=alexapi
 ProtectHome=true
 RuntimeDirectory=AlexaPi
 RuntimeDirectoryMode=0770
-WorkingDirectory=/run/AlexaPi
+WorkingDirectory=/opt/AlexaPi/src
 
 [Install]
 WantedBy=default.target

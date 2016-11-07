@@ -5,16 +5,17 @@ import threading
 
 import alexa.helper.shared as shared
 from alexa.player.player import player
-from alexa.player.player import _DynamicVariable as dynamic_var
 from alexa.player.player import PlaybackDataContainer
 
 log = shared.logger(__name__)
 
 class TestPlayer(unittest.TestCase):
 
-	def _playerCallback(self):
+	def _playerCallback(self, state):
 		# Fake callback
-		plog.inf('** Player callback called!!')
+		log.info('State: ' + str(state))
+		if state == 8:
+			log.info('Audio queue almost empty')
 
 	def test_1_dynamic_variable(self):
 		playback = PlaybackDataContainer(key='dd', test=1, david='roth')
@@ -24,28 +25,9 @@ class TestPlayer(unittest.TestCase):
 		log.info(playback.data['test'])
 		log.info(playback.data['david'])
 
-		ds = dynamic_var(True)
-		#Add items
-		self.assertEqual(ds.add(key='dd', test=1, david='roth'), None)
-
-		#Retrieve items
-		self.assertEqual(ds.get('key'), 'dd')
-		self.assertEqual(ds.get('test'), 1)
-		self.assertEqual(ds.get('david'), 'roth')
-
 		# Remove Items
-		self.assertEqual(ds.rm('key'), None)
-		self.assertEqual(ds.rm('test'), None)
-		self.assertEqual(ds.clr(), None)
-
-		ds = dynamic_var()
-		self.assertEqual(ds.add(key='dd', test=1, david='roth'), None)
-		self.assertEqual(ds.get('dd', 'david'), 'roth')
-		self.assertEqual(ds.get('dd', 'test'), 1)
-
-		# Remove Items
-		#self.assertEqual(ds.rm('dd'), None)
-		#self.assertEqual(ds.clr(), None)
+		#self.assertEqual(playback.rm('dd'), None)
+		#self.assertEqual(playback.clr(), None)
 
 	def test_2_play_avs_response(self):
 		for loop in range(0, 3):
