@@ -129,11 +129,14 @@ class MediaPlayer():
 
 		log.debug("{}Media Player State:{} {}/{}".format(shared.bcolors.OKGREEN, shared.bcolors.ENDC, vlc_state, caller_name))
 
+		if playback.data['interface_callback'] is not None: #Do callback with VLC state msg
+			playback.data['interface_callback'](vlc_state)
+
 		if vlc_state == vlc.State.Playing:	#Playing
 			playback.data['is_playing'] = True
 			playback.data['is_paused'] = False
 
-			if not self._queue.getItemCount() == 0 and playback.data['queue_almost_empty']: #Send playback almost empty
+			if not self._queue.getItemCount() == 0 and playback.data['queue_almost_empty']: #Do callback with msg playback almost empty
 				playback.data['interface_callback'](8)
 
 		elif vlc_state == vlc.State.Paused:	#Paused
@@ -155,8 +158,6 @@ class MediaPlayer():
 			playback.data['is_playing'] = False
 			playback.data['is_paused'] = False
 
-		if playback.data['interface_callback'] is not None:
-			playback.data['interface_callback'](vlc_state)
 
 	def _tuneinplaylist(self, url):
 		global tunein_parser
