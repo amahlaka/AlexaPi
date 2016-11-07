@@ -1,14 +1,36 @@
-#alexapi/shared.py
+#alexa/helper/shared.py
 
 import os
-import sys
 import time
-import yaml
-import config
 import optparse
 import tempfile
 
 import RPi.GPIO as GPIO
+from alexa.helper.config import config
+from alexa.helper.logger import logger_initialize
+from alexa.helper.logger import logger
+
+ROOT_DIR = os.path.dirname(os.path.abspath('./src'))
+resources_path = os.path.join(ROOT_DIR, 'resources', '')
+tmp_path = os.path.join(tempfile.mkdtemp(prefix='AlexaPi-runtime-'), '')
+
+if config and 'debug' in config and 'alexa' in config['debug']:
+	if config['debug']['alexa']: debug = True
+
+#Intialize logging
+logger_initialize(config)
+
+#Get arguments
+parser = optparse.OptionParser()
+parser.add_option('-s', '--silent',
+                dest="silent",
+                action="store_true",
+                default=False,
+                help="start without saying hello"
+                )
+
+cmdopts, cmdargs = parser.parse_args()
+silent = cmdopts.silent
 
 class bcolors:
         HEADER = '\033[95m'
@@ -20,36 +42,7 @@ class bcolors:
         BOLD = '\033[1m'
         UNDERLINE = '\033[4m'
 
-
-#Get arguments
-parser = optparse.OptionParser()
-parser.add_option('-s', '--silent',
-                dest="silent",
-                action="store_true",
-                default=False,
-                help="start without saying hello"
-                )
-
-parser.add_option('-d', '--debug',
-                dest="debug",
-                action="store_true",
-                default=False,
-                help="display debug messages"
-                )
-
-cmdopts, cmdargs = parser.parse_args()
-silent = cmdopts.silent
-debug = cmdopts.debug
-
-#path = os.path.realpath(__file__).rstrip(os.path.basename(__file__))
-path = os.path.dirname(sys.modules['__main__'].__file__)
-resources_path = os.path.join(path, 'resources', '')
-tmp_path = os.path.join(tempfile.mkdtemp(prefix='AlexaPi-runtime-'), '')
-
-with open(config.filename, 'r') as stream:
-        config = yaml.load(stream)
-
-class __GPIO:
+class _GPIO:
 	def __init__(self):
 		GPIO.setwarnings(False)
 		GPIO.cleanup()
@@ -63,7 +56,7 @@ class Button:
 	def get_button_status(self):
 		return GPIO.input(config['raspberrypi']['button'])
 
-class __Led:
+class _Led:
 	def __init__(self):
 		GPIO.setup(config['raspberrypi']['lights'], GPIO.OUT)
 		GPIO.output(config['raspberrypi']['lights'], GPIO.LOW)
@@ -111,5 +104,5 @@ class __Led:
 			GPIO.output(config['raspberrypi']['rec_light'], GPIO.HIGH)
 			time.sleep(.2)
 			GPIO.output(config['raspberrypi']['rec_light'], GPIO.LOW)
-__GPIO()
-led = __Led()
+_GPIO()
+led = _Led()

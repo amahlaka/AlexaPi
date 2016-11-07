@@ -1,8 +1,9 @@
 import os
 import sys
+import yaml
 
 __fileNames = [
-	os.path.join(os.path.realpath(__file__).rstrip(os.path.basename(__file__)), '..', 'config.yaml'),
+	os.path.join(os.path.realpath(__file__).rstrip(os.path.basename(__file__)), '../..', 'config.yaml'),
 	'/etc/opt/AlexaPi/config.yaml',
 ]
 
@@ -16,6 +17,8 @@ if filename == '':
 	print('ERROR: No configuration file found!')
 	sys.exit(1)
 
+with open(filename, 'r') as stream:
+	config = yaml.load(stream)
 
 def set_variable(variable, value):
 	# WARNING: this is a silly implementation that doesn't care about YAML sections,

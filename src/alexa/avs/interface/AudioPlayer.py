@@ -4,8 +4,8 @@ import json
 import uuid
 import threading
 
-import alexapi.shared as shared
-import alexapi.player.player as player
+import alexa.helper.shared as shared
+from alexa.player.player import player
 
 class AudioPlayer:
 	__avsi = None
@@ -15,7 +15,9 @@ class AudioPlayer:
 	def __init__(self, avs_interface):
 		self.__avsi = avs_interface
 
-	def __playerCallback(self, state):
+	def _playerCallback(self, state):
+		print 'STATE: ' + str(state)
+
 		if state == 3:
 			self.PlaybackStarted()
 
@@ -56,8 +58,8 @@ class AudioPlayer:
 		else:
 			content = url
 
-		player.pstate.add_mediaInfo(nav_token=nav_token, offset=offset, streamFormat=streamFormat, url=url, play_behavior=play_behavior, content=content)
-		pThread = threading.Thread(target=player.play_media, args=(nav_token, self.__playerCallback, )) #TODO: Is nav_token unique
+		player.package.add(token=nav_token, offset=offset, streamFormat=streamFormat, url=url, play_behavior=play_behavior, content=content)
+		pThread = threading.Thread(target=player.play_avs_response, args=(nav_token, self._playerCallback, )) #TODO: Is nav_token unique
 		pThread.start()
 
 	def PlaybackStarted(self):
@@ -77,7 +79,7 @@ class AudioPlayer:
 
 		data = json.loads(json.dumps(j))
 		data['event']['header']['messageId'] = str(uuid.uuid4())
-		data['event']['payload']['token'] = player.pstate.currentItem
+		data['event']['payload']['token'] = player.getCurrentToken()
 		data['event']['payload']['offsetInMilliseconds'] = 0 #TODO: send audio current offset in milliseconds
 
 		payload = [
@@ -104,7 +106,7 @@ class AudioPlayer:
 
 		data = json.loads(json.dumps(j))
 		data['event']['header']['messageId'] = str(uuid.uuid4())
-		data['event']['payload']['token'] = player.pstate.currentItem
+		data['event']['payload']['token'] = player.getCurrentToken()
 		data['event']['payload']['offsetInMilliseconds'] = 0 #TODO: send audio current offset in milliseconds
 		payload = [
 			('file', ('request', json.dumps(data), 'application/json; charset=UTF-8')),

@@ -2,8 +2,8 @@ import sys
 import signal
 import shutil
 
-import alexapi.shared as shared
-from helper.thread import thread_manager
+import alexa.helper.shared as shared
+from alexa.helper.thread import thread_manager
 
 class CleanUp:
 	__session = False

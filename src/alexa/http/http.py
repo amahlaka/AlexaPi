@@ -1,4 +1,4 @@
-#alexapi/http/http.py
+#alexa/http/http.py
 
 import sys
 import json
@@ -9,9 +9,10 @@ import threading
 from memcache import Client
 from hyper.contrib import HTTP20Adapter
 
-import alexapi.shared as shared
-from helper.thread import thread_manager
+import alexa.helper.shared as shared
+from alexa.helper.thread import thread_manager
 
+log = shared.logger(__name__)
 
 avs_auth_url = shared.config['alexa']['AuthUrl']
 avs_base_url = shared.config['alexa']['BaseUrl']
@@ -41,7 +42,6 @@ class Http:
 					self.__initialized = True
 
 				except (KeyboardInterrupt, SystemExit):
-					print 'Exiting...'
 					if self.__initialized: self.stop()
 
 			def ping(self):
@@ -66,14 +66,16 @@ class Http:
 						r = False
 						if pause():
 							return
-						print
-						print 'Pinging AVS...'
-						print
+
+						log.debug('')
+						log.debug('Pinging AVS...')
+						log.debug('')
+
 						r = self.__session.get('/ping')
 
 					except Exception as e:
-						print "ping(): could not ping - response: %s" % r
-						print "error: %s" % e
+						log.exception("ping(): could not ping - response: %s" % r)
+						log.exception("error: %s" % e)
 
 			def start(self, interval=False):
 				if interval:
@@ -87,7 +89,7 @@ class Http:
 		def __init__(self, interface):
 			# Initialize per: https://developer.amazon.com/public/solutions/alexa/alexa-voice-service/docs/managing-an-http-2-connection#prerequisites
 			while not self.__check_internet():
-				print(".")
+				log.info(".")
 				shared.led.blink_wait()
 
 			self.__interface = interface
@@ -104,13 +106,13 @@ class Http:
 			return s
 
 		def __check_internet(self):
-			print("Checking Internet Connection...")
+			log.info("Checking Internet Connection...")
 			try:
 				self.__new_session('https://api.amazon.com/auth/o2/token')
-				print("Connection {}OK{}".format(shared.bcolors.OKGREEN, shared.bcolors.ENDC))
+				log.info("Connection {}OK{}".format(shared.bcolors.OKGREEN, shared.bcolors.ENDC))
 				return True
 			except:
-				print("Connection {}Failed{}".format(shared.bcolors.WARNING, shared.bcolors.ENDC))
+				log.info("Connection {}Failed{}".format(shared.bcolors.WARNING, shared.bcolors.ENDC))
 				return False
 
 		def __authenticate(self):
@@ -134,7 +136,7 @@ class Http:
 				return current_token
 
 			else:
-				print "refresh not configured!" #TODO: Change to debug warning
+				log.warning("Config 'Refresh' not configured!")
 
 		def __open_downchannel_stream(self):
 			full_url = '{}/{}/directives'.format(avs_base_url, API_VERSION)
@@ -144,8 +146,8 @@ class Http:
 				response = self.__session.get(full_url, headers=headers, stream=True, timeout=None)
 
 			except Exception as e:
-				print "{}(): Could not open AVS downchannel stream - {}".format(currentFuncName, full_url)
-				print "error: %s" % e
+				log.exception("{}(): Could not open AVS downchannel stream - {}".format(currentFuncName, full_url))
+				log.exception("error: %s" % e)
 				return False
 
 			return True
@@ -162,8 +164,8 @@ class Http:
 				request = self.__session.post(full_url, headers=headers, files=payload, stream=True, timeout=None)
 
 			except Exception as e:
-				print "{}(): Could not synchronize state - %s".format(currentFuncName, full_url)
-				print "error: %s" % e
+				log.exception("{}(): Could not synchronize state - %s".format(currentFuncName, full_url))
+				log.exception("error: %s" % e)
 				return False
 
 			ping.start()
@@ -179,14 +181,18 @@ class Http:
 			full_url = avs_base_url + path
 			headers = {"Authorization": "Bearer %s" % self.__auth_token}
 
-			if shared.debug: print("\n{}<-{}{}JSON String Sent:{} {}".format(shared.bcolors.BOLD, shared.bcolors.ENDC, shared.bcolors.OKBLUE, shared.bcolors.ENDC, payload[0][1][1]))
+			log.debug('')
+			log.debug('')
+			log.debug("{}<-{}{}JSON String Sent:{} {}".format(shared.bcolors.BOLD, shared.bcolors.ENDC, shared.bcolors.OKBLUE, shared.bcolors.ENDC, payload[0][1][1]))
+			log.debug('')
+			log.debug('')
 
 			try:
 				request = self.__session.post(full_url, headers=headers, files=payload, stream=True, timeout=None)
 
 			except Exception as e:
-				print "{}(): Could not post to: {}".format(currentFuncName, full_url)
-				print "error: %s" % e
+				log.exception("{}(): Could not post to: {}".format(currentFuncName, full_url))
+				log.exception("error: %s" % e)
 				return False
 
 			return request
@@ -199,8 +205,8 @@ class Http:
 				request = self.__session.get(full_url, headers=headers, stream=True, timeout=None)
 
 			except Exception as e:
-				print "{}(): Could not get to: {}".format(currentFuncName, full_url)
-				print "error: %s" % e
+				log.exception("{}(): Could not get to: {}".format(currentFuncName, full_url))
+				log.exception("error: %s" % e)
 				return False
 
 			return request

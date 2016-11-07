@@ -18,12 +18,12 @@ class Start(object):
 	def index(self):
 		scope="alexa_all"
 		sd = json.dumps({
-		    "alexa:all": {
-		        "productID": config['alexa']['ProductID'],
-		        "productInstanceAttributes": {
-		            "deviceSerialNumber": "001"
-		        }
-		    }
+			"alexa:all": {
+				"productID": config['alexa']['ProductID'],
+				"productInstanceAttributes": {
+					"deviceSerialNumber": "001"
+				}
+			}
 		})
 		url = "https://www.amazon.com/ap/oa"
 		callback = cherrypy.url()  + "code" 
@@ -31,6 +31,7 @@ class Start(object):
 		req = requests.Request('GET', url, params=payload)
 		p = req.prepare()
 		raise cherrypy.HTTPRedirect(p.url)
+
 	def code(self, var=None, **params):
 		code = urllib.quote(cherrypy.request.params['code'])
 		callback = cherrypy.url()
@@ -44,7 +45,7 @@ class Start(object):
 		return "<h2>Success!</h2><h3> Refresh token has been added to your config file, you may now reboot the Pi </h3><br>{}".format(resp['refresh_token'])
 	index.exposed = True
 	code.exposed = True
-		
+
 cherrypy.config.update({'server.socket_host': '0.0.0.0',})
 cherrypy.config.update({'server.socket_port': int(os.environ.get('PORT', '5050')),})
 cherrypy.config.update({ "environment": "embedded" })
@@ -54,4 +55,3 @@ ip =[(s.connect(('8.8.8.8', 53)), s.getsockname()[0], s.close()) for s in [socke
 print "Ready goto http://{}:5050 or http://localhost:5050  to begin the auth process".format(ip) 
 print "(Press Ctrl-C to exit this script once authorization is complete)".format(ip)
 cherrypy.quickstart(Start())
-

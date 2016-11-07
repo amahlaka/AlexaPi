@@ -1,8 +1,8 @@
-#alexapi/AVS/Interface/SpeechRecognizer.py
+#alexapi/avs/interface/SpeechRecognizer.py
 
 import json
 
-import alexapi.shared as shared
+import alexa.helper.shared as shared
 
 class SpeechRecognizer:
 	__avsi = None

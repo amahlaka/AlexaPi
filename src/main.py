@@ -21,10 +21,13 @@ from pocketsphinx import get_model_path
 from pocketsphinx.pocketsphinx import *
 from sphinxbase.sphinxbase import *
 
-import alexapi.shared as shared
-import alexapi.player.player as player
-import helper.exit_handler as exit_handler
-from alexapi.avs.interface_manager import InterfaceManager
+import alexa.helper.shared as shared
+import alexa.helper.exit_handler as exit_handler
+from alexa.avs.interface_manager import InterfaceManager
+from alexa.player.player import player
+
+#Get logging
+log = shared.logger('Alexa.main')
 
 #Setup
 recorded = False
@@ -72,16 +75,16 @@ def detect_button(channel):
         global button_pressed
         buttonPress = time.time()
         button_pressed = True
-        if shared.debug: print("{}Button Pressed! Recording...{}".format(shared.bcolors.OKBLUE, shared.bcolors.ENDC))
+        log.info("{}Button Pressed! Recording...{}".format(shared.bcolors.OKBLUE, shared.bcolors.ENDC))
         time.sleep(.5) # time for the button input to settle down
         while (shared.get_button_status() == 0):
                 button_pressed = True
                 time.sleep(.1)
                 if time.time() - buttonPress > 10: # pressing button for 10 seconds triggers a system halt
-			player.say(shared.resources_path+'alexahalt.mp3')
-			if shared.debug: print("{} -- 10 second putton press.  Shutting down. -- {}".format(shared.bcolors.WARNING, shared.bcolors.ENDC))
+			player.play_local(shared.resources_path+'alexahalt.mp3')
+			log.info("{} -- 10 second putton press.  Shutting down. -- {}".format(shared.bcolors.WARNING, shared.bcolors.ENDC))
 			os.system("halt")
-        if shared.debug: print("{}Recording Finished.{}".format(shared.bcolors.OKBLUE, shared.bcolors.ENDC))
+        log.debug("{}Recording Finished.{}".format(shared.bcolors.OKBLUE, shared.bcolors.ENDC))
         button_pressed = False
         time.sleep(.5) # more time for the button to settle down
 
@@ -133,9 +136,9 @@ def silence_listener(throwaway_frames):
 				thresholdSilenceMet = True
 			shared.led.rec_on()
 
-		if shared.debug: print ("Debug: End recording")
+		log.debug("Debug: End recording")
 
-		# if shared.debug: player.say(shared.resources_path+'beep.wav', 0, 100)
+		if shared.debug: player.play_local(shared.resources_path+'beep.wav', 100)
 
 		shared.led.rec_off()
 		rf = open(shared.tmp_path + 'recording.wav', 'w')
@@ -183,14 +186,14 @@ def start():
 
 				start = time.time()
 				record_audio = True
-				player.say(shared.resources_path+'alexayes.mp3', 0)
+				player.play_local(shared.resources_path+'alexayes.mp3', 0)
 
 			elif button_pressed:
 				if player.is_playing: player.stop()
 				record_audio = True
 
 		# do the following things if either the button has been pressed or the trigger word has been said
-		if shared.debug: print ("detected the edge, setting up audio")
+		log.debug("detected the edge, setting up audio")
 
 		# To avoid overflows close the microphone connection
 		inp.close()
@@ -205,10 +208,10 @@ def start():
 				except Exception as e:
 					print(e)
 
-		if shared.debug: print "Starting to listen..."
+		log.info("Starting to listen...")
 		silence_listener(VAD_THROWAWAY_FRAMES)
 
-		if shared.debug: print "Debug: Sending audio to be processed"
+		log.debug("Debug: Sending audio to be processed")
 		alexa_speech_recognizer()
 
 		# Now that request is handled restart audio decoding
@@ -220,7 +223,7 @@ def setup():
 
 	#hardware = hadware.Somthing() #Initialize hardware
 	avs_interface = InterfaceManager()
-	if (shared.silent == False): player.say(shared.resources_path+"hello.mp3")
+	if (shared.silent == False): player.play_local(shared.resources_path+"hello.mp3")
 
 if __name__ == "__main__":
 	try:
