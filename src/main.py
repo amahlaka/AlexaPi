@@ -11,12 +11,12 @@ from pocketsphinx import get_model_path
 from pocketsphinx.pocketsphinx import *
 from sphinxbase.sphinxbase import *
 
-import alexa.helper.shared as shared
-import alexa.helper.exit_handler as exit_handler
+from alexa import alexa
 from alexa.avs.interface_manager import InterfaceManager
+import alexa.exit_handler as exit_handler
 
 #Get logging
-log = shared.logger('Alexa.main')
+log = alexa.logger('Alexa.main')
 
 #Setup
 recorded = False
@@ -29,7 +29,7 @@ ps_config.set_string('-hmm', os.path.join(get_model_path(), 'en-us'))
 ps_config.set_string('-dict', os.path.join(get_model_path(), 'cmudict-en-us.dict'))
 
 #Specify recognition key phrase
-ps_config.set_string('-keyphrase', shared.config['sphinx']['trigger_phrase'])
+ps_config.set_string('-keyphrase', alexa.config['sphinx']['trigger_phrase'])
 ps_config.set_float('-kws_threshold',1e-5)
 
 # Hide the VERY verbose logging information
@@ -60,24 +60,24 @@ def detect_button(channel):
         global button_pressed
         buttonPress = time.time()
         button_pressed = True
-        log.info("{}Button Pressed! Recording...{}".format(shared.bcolors.OKBLUE, shared.bcolors.ENDC))
+        log.info("{}Button Pressed! Recording...{}".format(alexa.bcolors.OKBLUE, alexa.bcolors.ENDC))
         time.sleep(.5) # time for the button input to settle down
-        while (shared.get_button_status() == 0):
+        while (alexa.get_button_status() == 0):
                 button_pressed = True
                 time.sleep(.1)
                 if time.time() - buttonPress > 10: # pressing button for 10 seconds triggers a system halt
-			shared.playback.halt()
-			log.info("{} -- 10 second putton press.  Shutting down. -- {}".format(shared.bcolors.WARNING, shared.bcolors.ENDC))
+			alexa.playback.halt()
+			log.info("{} -- 10 second putton press.  Shutting down. -- {}".format(alexa.bcolors.WARNING, alexa.bcolors.ENDC))
 			os.system("halt")
 
-        log.debug("{}Recording Finished.{}".format(shared.bcolors.OKBLUE, shared.bcolors.ENDC))
+        log.debug("{}Recording Finished.{}".format(alexa.bcolors.OKBLUE, alexa.bcolors.ENDC))
         button_pressed = False
         time.sleep(.5) # more time for the button to settle down
 
 def silence_listener(throwaway_frames):
 		global button_pressed
 		# Reenable reading microphone raw data
-		inp = alsaaudio.PCM(alsaaudio.PCM_CAPTURE, alsaaudio.PCM_NORMAL, shared.config['sound']['device'])
+		inp = alsaaudio.PCM(alsaaudio.PCM_CAPTURE, alsaaudio.PCM_NORMAL, alexa.config['sound']['device'])
 		inp.setchannels(1)
 		inp.setrate(VAD_SAMPLERATE)
 		inp.setformat(alsaaudio.PCM_FORMAT_S16_LE)
@@ -118,26 +118,26 @@ def silence_listener(throwaway_frames):
 			# (allow user to speak for total of max recording length if they haven't said anything yet)
 			if (numSilenceRuns != 0) and ((silenceRun * VAD_FRAME_MS) > VAD_SILENCE_TIMEOUT):
 				thresholdSilenceMet = True
-			shared.led.rec_on()
+			alexa.led.rec_on()
 
 		log.debug("Debug: End recording")
-		if shared.debug: shared.playback.beep()
+		if alexa.debug: alexa.playback.beep()
 
-		shared.led.rec_off()
-		rf = open(shared.tmp_path + 'recording.wav', 'w')
+		alexa.led.rec_off()
+		rf = open(alexa.tmp_path + 'recording.wav', 'w')
 		rf.write(audio)
 		rf.close()
 		inp.close()
 
 def start():
-	global vad, button_pressed
-	shared.Button(detect_button)
+	global vad, button_pressed, avs_interface
+	alexa.Button(detect_button)
 
 	while True:
 		record_audio = False
 
 		# Enable reading microphone raw data
-		inp = alsaaudio.PCM(alsaaudio.PCM_CAPTURE, alsaaudio.PCM_NORMAL, shared.config['sound']['device'])
+		inp = alsaaudio.PCM(alsaaudio.PCM_CAPTURE, alsaaudio.PCM_NORMAL, alexa.config['sound']['device'])
 		inp.setchannels(1)
 		inp.setrate(16000)
 		inp.setformat(alsaaudio.PCM_FORMAT_S16_LE)
@@ -159,16 +159,16 @@ def start():
 
 			# if trigger word was said
 			if decoder.hyp() != None:
-				if shared.player.is_playing():
-					shared.player.stop()
+				if alexa.player.is_playing():
+					alexa.player.stop()
 					time.sleep(.5) #add delay before audio prompt
 
 				start = time.time()
 				record_audio = True
-				shared.playback.yes()
+				alexa.playback.yes()
 
 			elif button_pressed:
-				if shared.player.is_playing: player.stop()
+				if alexa.player.is_playing: player.stop()
 				record_audio = True
 
 		# do the following things if either the button has been pressed or the trigger word has been said
@@ -178,9 +178,9 @@ def start():
 		inp.close()
 
 		# clean up the temp directory
-		if shared.debug == False:
-			for file in os.listdir(shared.tmp_path):
-				file_path = os.path.join(shared.tmp_path, file)
+		if alexa.debug == False:
+			for file in os.listdir(alexa.tmp_path):
+				file_path = os.path.join(alexa.tmp_path, file)
 				try:
 					if os.path.isfile(file_path):
 						os.remove(file_path)
@@ -198,11 +198,9 @@ def start():
 
 def setup():
 	global avs_interface, exit
-	exit = exit_handler.CleanUp()
-
-	#hardware = hadware.Somthing() #Initialize hardware
+	exit = exit_handler.CleanUp(alexa.tmp_path)
 	avs_interface = InterfaceManager()
-	if (shared.silent == False): shared.playback.hello()
+	if (alexa.silent == False): alexa.playback.hello()
 
 if __name__ == "__main__":
 	try:

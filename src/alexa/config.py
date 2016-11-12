@@ -1,9 +1,11 @@
+#alexa/config.py
+
 import os
 import sys
 import yaml
 
 __fileNames = [
-	os.path.join(os.path.realpath(__file__).rstrip(os.path.basename(__file__)), '../..', 'config.yaml'),
+	os.path.join(os.path.realpath(__file__).rstrip(os.path.basename(__file__)), '..', 'config.yaml'),
 	'/etc/opt/AlexaPi/config.yaml',
 ]
 

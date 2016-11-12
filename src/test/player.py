@@ -1,13 +1,11 @@
 import os
 import uuid
 import unittest
-import threading
 
-import alexa.helper.shared as shared
-from alexa.player.player import player
+from alexa import alexa
 from alexa.player.player import PlaybackDataContainer
 
-log = shared.logger(__name__)
+log = alexa.logger(__name__)
 
 class TestPlayer(unittest.TestCase):
 
@@ -34,25 +32,25 @@ class TestPlayer(unittest.TestCase):
 			loop += 1
 
 			token = 'fake_token1-loop({})-{}'.format(loop, uuid.uuid4())
-			content = shared.resources_path + "hello.mp3"
-			player.package.add(token=token, content=content)
-			gThread = threading.Thread(target=player.play_avs_response, args=(token, self._playerCallback,))
-			gThread.start()
+			content = alexa.resources_path + "hello.mp3"
+			alexa.player.package.add(token=token, content=content)
+			alexa.thread_manager.start(alexa.player.play_avs_response, alexa.player.stop, token, self._playerCallback)
 
 			token = 'fake_token2-loop({})-{}'.format(loop, uuid.uuid4())
-			content = shared.resources_path + "hello.mp3"
-			player.package.add(token=token, content=content)
-			gThread = threading.Thread(target=player.play_avs_response, args=(token, self._playerCallback,))
-			gThread.start()
+			content = alexa.resources_path + "hello.mp3"
+			alexa.player.package.add(token=token, content=content)
+			alexa.thread_manager.start(alexa.player.play_avs_response, alexa.player.stop, token, self._playerCallback)
 
 			token = 'fake_token3-loop({})-{}'.format(loop, uuid.uuid4())
-			content = shared.resources_path + "hello.mp3"
-			player.package.add(token=token, content=content)
-			gThread = threading.Thread(target=player.play_avs_response, args=(token, self._playerCallback,))
-			gThread.start()
+			content = alexa.resources_path + "hello.mp3"
+			alexa.player.package.add(token=token, content=content)
+			alexa.thread_manager.start(alexa.player.play_avs_response, alexa.player.stop, token, self._playerCallback)
 
 	def test_3_play_local(self):
-		player.play_local(shared.resources_path+"start.mp3")
+		alexa.playback.beep()
+		alexa.playback.hello()
+		alexa.playback.halt()
+		alexa.playback.error()
 
 if __name__ == '__main__':
 	unittest.main()

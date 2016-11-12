@@ -1,15 +1,17 @@
+#alexa/exit_handler.py
+
 import sys
 import signal
 import shutil
 
-import alexa.helper.shared as shared
-from alexa.helper.thread import thread_manager
+from alexa import thread_manager
 
 class CleanUp:
-	__session = False
-	__executed = False
 
-	def __init__(self):
+	def __init__(self, tmp_dir):
+		self._tmp_dir = tmp_dir
+		self.__executed = False
+
 		for sig in (signal.SIGABRT, signal.SIGILL, signal.SIGINT, signal.SIGSEGV, signal.SIGTERM):
 			signal.signal(sig, self.cleanup)
 
@@ -17,7 +19,7 @@ class CleanUp:
 		if not self.__executed:
 			print "Exiting..."
 			thread_manager.stop_all()
-			shutil.rmtree(shared.tmp_path)
+			shutil.rmtree(self._tmp_dir)
 			self.__executed = True
 
 		sys.exit(0)

@@ -1,4 +1,4 @@
-#alexapi/player/player.py
+#alexa/player/player.py
 
 import vlc
 import time
@@ -6,8 +6,8 @@ import requests
 import threading
 from collections import deque
 
-import alexa.player.tunein as tunein
-from alexa.helper.thread import thread_manager
+from alexa.player import tunein
+from alexa.thread import thread_manager
 
 tunein_parser = tunein.TuneIn(5000)
 
@@ -40,21 +40,12 @@ class PlaybackDataContainer(object):
 		return self._data
 
 class MediaPlayer():
-	avs_playback = PlaybackDataContainer(is_playing=False, is_paused=False, vlc_player=None, interface_callback=None, queue_almost_empty=False)
-	package = None
-	_media_player_state = None
-
-	_vlc_instance = None
-	_player = None
-	_queue = None
-	_state = None
 
 	class _Settings:
 		currVolume = 100
 		overRideVolume = 0
 
 	class _MediaPackage:
-		_mediaInfo = {}
 
 		class MediaInfo:
 			content = None
@@ -64,6 +55,9 @@ class MediaPlayer():
 			nav_token = None
 			streamFormat = None
 			offset = None
+
+		def __init__(self):
+			self._mediaInfo = {}
 
 		def clr(self):
 			self._mediaInfo.clear()
@@ -117,6 +111,7 @@ class MediaPlayer():
 			return self._item_count
 
 	def __init__(self, logger, bcolors):
+		self.avs_playback = PlaybackDataContainer(is_playing=False, is_paused=False, vlc_player=None, interface_callback=None, queue_almost_empty=False)
 		self._bcolors = bcolors
 		self._log = logger(__name__)
 		self.package = self._MediaPackage()
@@ -138,7 +133,7 @@ class MediaPlayer():
 				playback.data['is_playing'] = True
 				playback.data['is_paused'] = False
 
-				if not self._queue.getItemCount() == 0 and playback.data['queue_almost_empty']: #Do callback with msg playback almost empty
+				if not self._queue.getItemCount() == 0 and 'queue_almost_empty' in playback.data and playback.data['queue_almost_empty']: #Do callback with msg playback almost empty
 					playback.data['interface_callback'](8)
 
 			elif vlc_state == vlc.State.Paused:	#Paused

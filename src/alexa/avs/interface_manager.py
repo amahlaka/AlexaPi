@@ -1,4 +1,4 @@
-#alexapi/avs/interface_manager.py
+#alexa/avs/interface_manager.py
 
 import os
 import time
@@ -6,13 +6,13 @@ import json
 import email
 import threading
 
-import alexa.helper.shared as shared
+from alexa import alexa
 from alexa.http.http import Http
 
 MODULE_ROOT = 'alexa.avs'
 INTERFACE_DIR = 'interface'
 
-log = shared.logger(__name__)
+log = alexa.logger(__name__)
 
 class InterfaceManager:
 	class Payload:
@@ -43,7 +43,7 @@ class InterfaceManager:
 			return False
 
 		def processor(self, r):
-			shared.led.blink_valid_data_received()
+			alexa.led.blink_valid_data_received()
 			data = "Content-Type: " + r.headers['content-type'] +'\r\n\r\n'+ r.content
 			msg = email.message_from_string(data)
 
@@ -53,13 +53,13 @@ class InterfaceManager:
 					j = json.loads(payload.get_payload())
 					log.debug('')
 					log.debug('')
-					log.debug("{}->{}{}JSON String Received:{} {}".format(shared.bcolors.BOLD, shared.bcolors.ENDC, shared.bcolors.OKBLUE, shared.bcolors.ENDC, json.dumps(j)))
+					log.debug("{}->{}{}JSON String Received:{} {}".format(alexa.bcolors.BOLD, alexa.bcolors.ENDC, alexa.bcolors.OKBLUE, alexa.bcolors.ENDC, json.dumps(j)))
 					log.debug('')
 					log.debug('')
 
 					binary = self._find_attachement(msg.get_payload(), j)
 					if binary:
-						filename = shared.tmp_path + binary.get('Content-ID').strip("<>")+".mp3"
+						filename = alexa.tmp_path + binary.get('Content-ID').strip("<>")+".mp3"
 						with open(filename, 'wb') as f:
 							log.debug('')
 							log.debug('Saving media attachement: %s' % filename)
@@ -121,7 +121,7 @@ class InterfaceManager:
 			if directive_method:
 				log.info('')
 				log.info('')
-				log.info('{}{}Dispatching directive(namespace/name):{} {}/{}...'.format(shared.bcolors.BOLD, shared.bcolors.OKBLUE, shared.bcolors.ENDC, namespace, directive_name))
+				log.info('{}{}Dispatching directive(namespace/name):{} {}/{}...'.format(alexa.bcolors.BOLD, alexa.bcolors.OKBLUE, alexa.bcolors.ENDC, namespace, directive_name))
 				log.info('')
 				gThread = threading.Thread(target=directive_method, args=(payload,))
 				gThread.start()
@@ -129,13 +129,13 @@ class InterfaceManager:
 
 		log.info('')
 		log.info('')
-		log.info('{}Unknown directive(namespace/name):{} {}/{}'.format(shared.bcolors.FAIL, shared.bcolors.ENDC, namespace, directive_name))
+		log.info('{}Unknown directive(namespace/name):{} {}/{}'.format(alexa.bcolors.FAIL, alexa.bcolors.ENDC, namespace, directive_name))
 		log.info('')
 
 	def send_event(self, msg_id, path, payload): #Events as sent by an AVS Interface
 		log.debug('')
 		log.debug('')
-		log.debug("{}<-{}{}JSON String Sent:{} {}".format(shared.bcolors.BOLD, shared.bcolors.ENDC, shared.bcolors.OKBLUE, shared.bcolors.ENDC, payload[0][1][1]))
+		log.debug("{}<-{}{}JSON String Sent:{} {}".format(alexa.bcolors.BOLD, alexa.bcolors.ENDC, alexa.bcolors.OKBLUE, alexa.bcolors.ENDC, payload[0][1][1]))
 		log.debug('')
 		log.debug('')
 
@@ -152,7 +152,7 @@ class InterfaceManager:
 			if event_method:
 				log.info('')
 				log.info('')
-				log.info('{}{}Dispatching event(namespace/name):{} {}/{}...'.format(shared.bcolors.BOLD, shared.bcolors.OKBLUE, shared.bcolors.ENDC, namespace, event_name))
+				log.info('{}{}Dispatching event(namespace/name):{} {}/{}...'.format(alexa.bcolors.BOLD, alexa.bcolors.OKBLUE, alexa.bcolors.ENDC, namespace, event_name))
 				log.info('')
 				response = event_method()
 
@@ -164,5 +164,5 @@ class InterfaceManager:
 
 		log.info('')
 		log.info('')
-		log.info('{}Unknown event(namespace/name):{} {}/{}'.format(shared.bcolors.FAIL, shared.bcolors.ENDC, namespace, event_name))
+		log.info('{}Unknown event(namespace/name):{} {}/{}'.format(alexa.bcolors.FAIL, alexa.bcolors.ENDC, namespace, event_name))
 		log.info('')

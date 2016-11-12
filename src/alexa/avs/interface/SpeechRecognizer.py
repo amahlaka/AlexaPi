@@ -3,7 +3,7 @@
 import json
 import uuid
 
-import alexa.helper.shared as shared
+from alexa import alexa
 
 class SpeechRecognizer:
 
@@ -29,7 +29,7 @@ class SpeechRecognizer:
 			}
 		}
 
-		with open('{}recording.wav'.format(shared.tmp_path)) as wav_file:
+		with open('{}recording.wav'.format(alexa.tmp_path)) as wav_file:
 			msg_id = str(uuid.uuid4())
 			dialog_id = str(uuid.uuid4())
 			event = json.loads(json.dumps(speech_recognizer_event))
@@ -39,6 +39,6 @@ class SpeechRecognizer:
 				('file', ('request', json.dumps(event), 'application/json; charset=UTF-8')),
 				('file', ('audio', wav_file, 'application/octet-stream'))
 			]
-			path = '/{}{}'.format(shared.config['alexa']['API_Version'], shared.config['alexa']['EventPath'])
+			path = '/{}{}'.format(alexa.config['alexa']['API_Version'], alexa.config['alexa']['EventPath'])
 
 			return self._interface_manager.send_event(dialog_id, path, payload)

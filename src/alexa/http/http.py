@@ -10,14 +10,14 @@ from memcache import Client
 from collections import deque
 from hyper.contrib import HTTP20Adapter
 
-import alexa.helper.shared as shared
+from alexa import alexa
 
 #sys.tracebacklimit = 0
-log = shared.logger(__name__)
+log = alexa.logger(__name__)
 
-avs_auth_url = shared.config['alexa']['AuthUrl']
-avs_base_url = shared.config['alexa']['BaseUrl']
-API_VERSION = shared.config['alexa']['API_Version']
+avs_auth_url = alexa.config['alexa']['AuthUrl']
+avs_base_url = alexa.config['alexa']['BaseUrl']
+API_VERSION = alexa.config['alexa']['API_Version']
 servers = ["127.0.0.1:11211"]
 mc = Client(servers, debug=1)
 currentFuncName = sys._getframe().f_code.co_name
@@ -84,7 +84,7 @@ class Http:
 			if interval:
 				self._interval = interval
 
-			shared.thread_manager.start(target=self.ping, stop=self.stop)
+			alexa.thread_manager.start(target=self.ping, stop=self.stop)
 
 		def stop(self):
 			self._stop = True
@@ -99,7 +99,7 @@ class Http:
 			def addItem(self, item):
 				self._q.appendleft(item)
 				self._item_count =  sum(1 for i in self._q)
-				#log.debug("{}Add to http queue:{} {} | Count: {}".format(shared.bcolors.OKBLUE, shared.bcolors.ENDC, item, self._item_count))
+				#log.debug("{}Add to http queue:{} {} | Count: {}".format(alexa.bcolors.OKBLUE, alexa.bcolors.ENDC, item, self._item_count))
 
 			def pop(self):
 				current_item = self._q.pop()
@@ -130,14 +130,14 @@ class Http:
 
 			while not self._check_internet():
 				log.info(".")
-				shared.led.blink_wait()
+				alexa.led.blink_wait()
 
 			self._authenticate()
 			self._http_session = self._initialize_new_http_session(avs_base_url)
 			self._open_downchannel_stream()
 			self._synchronize_state()
 
-			shared.led.blink_rdy()
+			alexa.led.blink_rdy()
 
 		def _initialize_new_http_session(self, url):
 			s = requests.Session()
@@ -148,10 +148,10 @@ class Http:
 			log.info("Checking Internet Connection...")
 			try:
 				self._initialize_new_http_session('https://api.amazon.com/auth/o2/token')
-				log.info("Connection {}OK{}".format(shared.bcolors.OKGREEN, shared.bcolors.ENDC))
+				log.info("Connection {}OK{}".format(alexa.bcolors.OKGREEN, alexa.bcolors.ENDC))
 				return True
 			except:
-				log.info("Connection {}Failed{}".format(shared.bcolors.WARNING, shared.bcolors.ENDC))
+				log.info("Connection {}Failed{}".format(alexa.bcolors.WARNING, alexa.bcolors.ENDC))
 				return False
 
 		def _back_off_wait(self, n):
@@ -162,14 +162,14 @@ class Http:
 		def _authenticate(self, force=False):
 			http_session = self._initialize_new_http_session(avs_auth_url)
 			current_token = mc.get("access_token")
-			refresh_token = shared.config['alexa']['refresh_token']
+			refresh_token = alexa.config['alexa']['refresh_token']
 
 			if (not current_token and refresh_token) or force:
 				count = 0
 				self.is_authenticated = False
 				url_path = '%s/auth/o2/token' % avs_auth_url
 				headers = {'Content-Type' : 'application/x-www-form-urlencoded', 'User-Agent': 'Alexa Python Agent'}
-				payload = {"grant_type" : "refresh_token", "refresh_token" : refresh_token, "client_id" : shared.config['alexa']['Client_ID'], "client_secret" : shared.config['alexa']['Client_Secret'], }
+				payload = {"grant_type" : "refresh_token", "refresh_token" : refresh_token, "client_id" : alexa.config['alexa']['Client_ID'], "client_secret" : alexa.config['alexa']['Client_Secret'], }
 
 				while not self.is_authenticated:
 					count += 1
@@ -178,7 +178,7 @@ class Http:
 					if response:
 						j_resp = json.loads(response.text)
 
-						log.debug('{}New token ({}{}{}) retrieved and expires in:{} {}'.format(shared.bcolors.OKGREEN, shared.bcolors.ENDC, j_resp['access_token'], shared.bcolors.OKGREEN, shared.bcolors.ENDC, j_resp['expires_in']))
+						log.debug('{}New token ({}{}{}) retrieved and expires in:{} {}'.format(alexa.bcolors.OKGREEN, alexa.bcolors.ENDC, j_resp['access_token'], alexa.bcolors.OKGREEN, alexa.bcolors.ENDC, j_resp['expires_in']))
 						self._auth_token = j_resp['access_token']
 						mc.set("access_token", j_resp['access_token'], j_resp['expires_in'] - 30)
 
@@ -244,7 +244,7 @@ class Http:
 
 				if http_code >= 200 and http_code < 300:
 					if http_code == 204:
-						#log.debug("{}Request Response is null {}(This is OKAY!){}".format(shared.bcolors.OKBLUE, shared.bcolors.OKGREEN, shared.bcolors.ENDC))
+						#log.debug("{}Request Response is null {}(This is OKAY!){}".format(alexa.bcolors.OKBLUE, alexa.bcolors.OKGREEN, alexa.bcolors.ENDC))
 						return [res_type.BLANK]
 
 					return [res_type.DATA, response]
@@ -253,23 +253,23 @@ class Http:
 					response.close()
 					return [res_type.ERROR]
 
-			log.debug('{}Unknown response: {} {}'.format(shared.bcolors.FAIL, response, shared.bcolors.ENDC))
-			shared.led.blink_error()
-			shared.play.error()
+			log.debug('{}Unknown response: {} {}'.format(alexa.bcolors.FAIL, response, alexa.bcolors.ENDC))
+			alexa.led.blink_error()
+			alexa.play.error()
 
 			return [res_type.ERROR]
 
 		def _error_session_callback(self, exception):
 			#if exception == requests.StreamResetError:
-			#	log.exception('{}An http error has occurred!!{} - error #{}'.format(shared.bcolors.WARNING, shared.bcolors.ENDC, exception.errno))
+			#	log.exception('{}An http error has occurred!!{} - error #{}'.format(alexa.bcolors.WARNING, alexa.bcolors.ENDC, exception.errno))
 			#	reauthenticate()
 
 			if exception.errno == 32: #Broken Pipe (Most likely invalid token. Get a new one
-				log.exception('{}An http error has occurred!!{} - error #{}'.format(shared.bcolors.WARNING, shared.bcolors.ENDC, exception.errno))
+				log.exception('{}An http error has occurred!!{} - error #{}'.format(alexa.bcolors.WARNING, alexa.bcolors.ENDC, exception.errno))
 				reauthenticate()
 
 			elif exception.errno < 0: #TODO: A really bad requests error?
-				log.exception('{}An http error has occurred!!{} - error #{}'.format(shared.bcolors.WARNING, shared.bcolors.ENDC, exception.errno))
+				log.exception('{}An http error has occurred!!{} - error #{}'.format(alexa.bcolors.WARNING, alexa.bcolors.ENDC, exception.errno))
 
 		def get_auth_token(self):
 			return self._auth_token
@@ -346,7 +346,7 @@ class Http:
 					if count > self._max_retransmit_count:
 						self._wait_for_http_response = False
 						self._http_queue.pop()
-						log.debug('{}Reached max retries; Giving up!{}'.format(shared.bcolors.FAIL, shared.bcolors.ENDC))
+						log.debug('{}Reached max retries; Giving up!{}'.format(alexa.bcolors.FAIL, alexa.bcolors.ENDC))
 						return False
 
 				time.sleep(self._back_off_wait(count))

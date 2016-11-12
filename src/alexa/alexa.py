@@ -1,4 +1,4 @@
-#alexa/helper/shared.py
+#alexa/alexa.py
 
 import os
 import time
@@ -6,12 +6,12 @@ import optparse
 import tempfile
 
 import RPi.GPIO as GPIO
-from alexa.helper.colors import *
-from alexa.helper.config import config
-from alexa.helper.logger import logger_initialize
-from alexa.helper.logger import logger
-from alexa.player.player import MediaPlayer
-from alexa.helper.thread import thread_manager
+from logger.log import logger
+from logger.log import logger_initialize
+from logger.colors import *
+from config import config
+from player.player import MediaPlayer
+from thread import thread_manager
 
 ROOT_DIR = os.path.dirname(os.path.abspath('./src'))
 resources_path = os.path.join(ROOT_DIR, 'resources', '')

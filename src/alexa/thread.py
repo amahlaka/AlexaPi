@@ -1,6 +1,5 @@
-import os
-import sys
-import time
+#alexa/thread.py
+
 import threading
 
 class ThreadManager:

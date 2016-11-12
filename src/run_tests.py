@@ -1,7 +1,7 @@
-# alexa/tests/runner.py
+# run_test.py
 import unittest
 
-import alexa.test.player as player
+import test.player as player
 
 # initialize the test suite
 loader = unittest.TestLoader()

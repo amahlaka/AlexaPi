@@ -3,7 +3,7 @@
 import json
 import uuid
 
-import alexa.helper.shared as shared
+from alexa import alexa
 
 class SpeechSynthesizer:
 
@@ -34,8 +34,8 @@ class SpeechSynthesizer:
 	def Speak(self, payload):
 		self._token = payload.json['directive']['payload']['token']
 		content = "file://" + payload.filename
-		shared.player.package.add(token=self._token, content=content)
-		shared.player.play_avs_response(self._token, self._playerCallback) #TODO: Is nav_token unique
+		alexa.player.package.add(token=self._token, content=content)
+		alexa.player.play_avs_response(self._token, self._playerCallback) #TODO: Is nav_token unique
 
 	def SpeechStarted(self):
 		speech_started = {
@@ -59,7 +59,7 @@ class SpeechSynthesizer:
 		payload = [
 			('file', ('request', json.dumps(data), 'application/json; charset=UTF-8')),
 		]
-		path = '/{}{}'.format(shared.config['alexa']['API_Version'], shared.config['alexa']['EventPath'])
+		path = '/{}{}'.format(alexa.config['alexa']['API_Version'], alexa.config['alexa']['EventPath'])
 
 		return self._interface_manager.send_event(msg_id, path, payload)
 
@@ -84,6 +84,6 @@ class SpeechSynthesizer:
 		payload = [
 			('file', ('request', json.dumps(data), 'application/json; charset=UTF-8')),
 		]
-		path = '/{}{}'.format(shared.config['alexa']['API_Version'], shared.config['alexa']['EventPath'])
+		path = '/{}{}'.format(alexa.config['alexa']['API_Version'], alexa.config['alexa']['EventPath'])
 
 		return self._interface_manager.send_event(msg_id, path, payload)
