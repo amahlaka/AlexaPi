@@ -6,9 +6,12 @@ import optparse
 import tempfile
 
 import RPi.GPIO as GPIO
+from alexa.helper.colors import *
 from alexa.helper.config import config
 from alexa.helper.logger import logger_initialize
 from alexa.helper.logger import logger
+from alexa.player.player import MediaPlayer
+from alexa.helper.thread import thread_manager
 
 ROOT_DIR = os.path.dirname(os.path.abspath('./src'))
 resources_path = os.path.join(ROOT_DIR, 'resources', '')
@@ -41,16 +44,9 @@ logfile = cmdopts.logfile
 #Intialize logging
 logger_initialize(config, logfile)
 
+#Intialize player
+player = MediaPlayer(logger, bcolors)
 
-class bcolors:
-        HEADER = '\033[95m'
-        OKBLUE = '\033[94m'
-        OKGREEN = '\033[92m'
-        WARNING = '\033[93m'
-        FAIL = '\033[91m'
-        ENDC = '\033[0m'
-        BOLD = '\033[1m'
-        UNDERLINE = '\033[4m'
 
 class _GPIO:
 	def __init__(self):
@@ -65,6 +61,22 @@ class Button:
 
 	def get_button_status(self):
 		return GPIO.input(config['raspberrypi']['button'])
+
+class _Playback:
+	def hello(self):
+		player.play_local(resources_path+'hello.mp3')
+
+	def yes(self):
+		player.play_local(resources_path+'alexayes.mp3', 0)
+
+	def halt(self):
+		player.play_local(resources_path+'alexahalt.mp3')
+
+	def beep(self):
+		player.play_local(resources_path+'beep.wav', 100)
+
+	def error(self):
+		player.play_local(resources_path+'error.mp3')
 
 class _Led:
 	def __init__(self):
@@ -116,3 +128,4 @@ class _Led:
 			GPIO.output(config['raspberrypi']['rec_light'], GPIO.LOW)
 _GPIO()
 led = _Led()
+playback = _Playback()

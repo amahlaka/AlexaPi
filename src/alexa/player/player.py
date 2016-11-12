@@ -7,10 +7,8 @@ import threading
 from collections import deque
 
 import alexa.player.tunein as tunein
-import alexa.helper.shared as shared
+from alexa.helper.thread import thread_manager
 
-
-log = shared.logger(__name__)
 tunein_parser = tunein.TuneIn(5000)
 
 media_playing = False
@@ -42,7 +40,7 @@ class PlaybackDataContainer(object):
 		return self._data
 
 class MediaPlayer():
-	avs_playback = PlaybackDataContainer(is_playing=False, is_paused=False, vlc_player=None, interface_callback=None)
+	avs_playback = PlaybackDataContainer(is_playing=False, is_paused=False, vlc_player=None, interface_callback=None, queue_almost_empty=False)
 	package = None
 	_media_player_state = None
 
@@ -96,20 +94,21 @@ class MediaPlayer():
 
 	class _Queue():
 
-		def __init__(self):
+		def __init__(self, log, bcolors):
+			self._log = log
+			self._bcolors = bcolors
 			self._q = deque() #A Thread safe queue used to play audio files play sequencially (FIFO)
 			self._item_count = 0
 
 		def addItem(self, item):
 			self._q.appendleft(item)
 			self._item_count =  sum(1 for i in self._q)
-			log.info("{}Add to queue:{} {} | Count: {}".format(shared.bcolors.OKBLUE, shared.bcolors.ENDC, item, self._item_count))
+			self._log.info("{}Add to queue:{} {} | Items remaining in queue: {}".format(self._bcolors.OKBLUE, self._bcolors.ENDC, item, self._item_count))
 
 		def getNextItem(self):
 			if self._q:
 				current_item = self._q.pop()
 				self._item_count -= 1
-				#if debug: print("{}Get from queue:{} {} | Count: {}".format(shared.bcolors.OKBLUE, shared.bcolors.ENDC, self.current_item, sum(1 for i in self._q)))
 				return current_item
 			else:
 				return None
@@ -117,51 +116,55 @@ class MediaPlayer():
 		def getItemCount(self):
 			return self._item_count
 
-	def __init__(self):
+	def __init__(self, logger, bcolors):
+		self._bcolors = bcolors
+		self._log = logger(__name__)
 		self.package = self._MediaPackage()
 		self._settings = self._Settings()
-		self._vlc_instance = vlc.Instance('--aout=alsa') # , '--alsa-audio-device=mono', '--file-logging', '--logfile=vlc-log.txt')
-		self._queue = self._Queue()
+		self._vlc_instance = vlc.Instance('--aout=alsa') # , '--alsa-audio-device=mono', '--file-logging', '--logfile=vlc-self._log.txt')
+		self._queue = self._Queue(self._log, bcolors)
 
 	def _vlc_callback(self, event, playback):
-		vlc_state = playback.data['vlc_player'].get_state()
-		caller_name = playback.data['caller_name']
+		def callback(event, playback):
+			vlc_state = playback.data['vlc_player'].get_state()
+			caller_name = playback.data['caller_name']
 
-		log.debug("{}Media Player State:{} {}/{}".format(shared.bcolors.OKGREEN, shared.bcolors.ENDC, vlc_state, caller_name))
+			self._log.debug("{}Media Player State:{} {}/{}".format(self._bcolors.OKGREEN, self._bcolors.ENDC, vlc_state, caller_name))
 
-		if playback.data['interface_callback'] is not None: #Do callback with VLC state msg
-			playback.data['interface_callback'](vlc_state)
+			if playback.data['interface_callback'] is not None: #Do callback with VLC state msg
+				playback.data['interface_callback'](vlc_state)
 
-		if vlc_state == vlc.State.Playing:	#Playing
-			playback.data['is_playing'] = True
-			playback.data['is_paused'] = False
+			if vlc_state == vlc.State.Playing:	#Playing
+				playback.data['is_playing'] = True
+				playback.data['is_paused'] = False
 
-			if not self._queue.getItemCount() == 0 and playback.data['queue_almost_empty']: #Do callback with msg playback almost empty
-				playback.data['interface_callback'](8)
+				if not self._queue.getItemCount() == 0 and playback.data['queue_almost_empty']: #Do callback with msg playback almost empty
+					playback.data['interface_callback'](8)
 
-		elif vlc_state == vlc.State.Paused:	#Paused
-			playback.data['is_playing'] = False
-			playback.data['is_paused'] = True
+			elif vlc_state == vlc.State.Paused:	#Paused
+				playback.data['is_playing'] = False
+				playback.data['is_paused'] = True
 
-		elif vlc_state == vlc.State.Stopped:	#Stopped
-			playback.data['is_playing'] = False
+			elif vlc_state == vlc.State.Stopped:	#Stopped
+				playback.data['is_playing'] = False
 
-		elif vlc_state == vlc.State.Ended:	#Ended
-			playback.data['is_playing'] = False
+			elif vlc_state == vlc.State.Ended:	#Ended
+				playback.data['is_playing'] = False
 
-			#if playback.data['playback_type'] == 'remote' and self._queue.getItemCount() == 0:
-			#	log.debug('Clearing...')
-			#	self.package.clr()
-			#	gstate.current_item = ''
+				#if playback.data['playback_type'] == 'remote' and self._queue.getItemCount() == 0:
+				#	self._log.debug('Clearing...')
+				#	self.package.clr()
+				#	gstate.current_item = ''
 
-		elif vlc_state == vlc.State.Error:	#Error
-			playback.data['is_playing'] = False
-			playback.data['is_paused'] = False
+			elif vlc_state == vlc.State.Error:	#Error
+				playback.data['is_playing'] = False
+				playback.data['is_paused'] = False
 
+		thread_manager.start(callback, self.stop, event, playback)
 
 	def _tuneinplaylist(self, url):
 		global tunein_parser
-		log.debug("TUNE IN URL = {}".format(url))
+		self._log.debug("TUNE IN URL = {}".format(url))
 		req = requests.get(url)
 		lines = req.content.split('\n')
 
@@ -189,7 +192,7 @@ class MediaPlayer():
 			else:
 				playback.data['vlc_player'].audio_set_volume(overRideVolume)
 
-			log.info('{}{}Play local media:{} {}'.format(shared.bcolors.BOLD, shared.bcolors.OKBLUE, shared.bcolors.ENDC, file))
+			self._log.info('{}{}Play local media:{} {}'.format(self._bcolors.BOLD, self._bcolors.OKBLUE, self._bcolors.ENDC, file))
 			playback.data['vlc_player'].play()
 			time.sleep(.1) # Allow time for state_callback to run
 
@@ -198,76 +201,75 @@ class MediaPlayer():
 				continue
 
 	def play_avs_response(self, token, interface_callback=False, override_volume=0):
-		self.avs_playback.data['caller_name'] = 'play_avs_response'
+		def play(token, interface_callback, override_volume):
+			self.avs_playback.data['caller_name'] = 'play_avs_response'
 
-		if token:
-			self._queue.addItem(token)
+			if token:
+				self._queue.addItem(token)
 
-		while self._queue.getItemCount() > 0:
-			self.avs_playback.data['type'] = 'remote'
+			while self._queue.getItemCount() > 0:
+				self.avs_playback.data['type'] = 'remote'
 
-			if self.avs_playback.data['is_playing'] is False and self.avs_playback.data['is_paused'] is False:
-				self.avs_playback.data['is_playing'] = True
-				self.avs_playback.data['is_paused'] = False
-				self.avs_playback.data['token'] = token
-				self.avs_playback.data['interface_callback'] = interface_callback
+				if self.avs_playback.data['is_playing'] is False and self.avs_playback.data['is_paused'] is False:
+					self.avs_playback.data['is_playing'] = True
+					self.avs_playback.data['is_paused'] = False
+					self.avs_playback.data['token'] = token
+					self.avs_playback.data['interface_callback'] = interface_callback
 
-				gstate.current_token = token
+					gstate.current_token = token
 
-				content = self.package.get(self._queue.getNextItem(), 'content')
-				gstate.current_item = content
-				self.avs_playback.data['current_item'] = content
+					content = self.package.get(self._queue.getNextItem(), 'content')
+					gstate.current_item = content
+					self.avs_playback.data['current_item'] = content
 
-				if self._queue.getItemCount() > 1: # 1 queue item left
-					self.avs_playback.data['queue_almost_empty'] = False
+					if self._queue.getItemCount() > 1: # 1 queue item left
+						self.avs_playback.data['queue_almost_empty'] = False
 
-				elif self._queue.getItemCount() == 1: # 1 queue item left
-					self.avs_playback.data['queue_almost_empty'] = True
+					elif self._queue.getItemCount() == 1: # 1 queue item left
+						self.avs_playback.data['queue_almost_empty'] = True
 
-				self.avs_playback.data['vlc_player'] = self._vlc_instance.media_player_new()
-				if (content.find('radiotime.com') != -1):
-					content = self._tuneinplaylist(content)
+					self.avs_playback.data['vlc_player'] = self._vlc_instance.media_player_new()
+					if (content.find('radiotime.com') != -1):
+						content = self._tuneinplaylist(content)
 
-				media = self._vlc_instance.media_new(content)
-				self.avs_playback.data['vlc_player'].set_media(media)
-				events = media.event_manager()
-				events.event_attach(vlc.EventType.MediaStateChanged, self._vlc_callback, self.avs_playback)
+					media = self._vlc_instance.media_new(content)
+					self.avs_playback.data['vlc_player'].set_media(media)
+					events = media.event_manager()
+					events.event_attach(vlc.EventType.MediaStateChanged, self._vlc_callback, self.avs_playback)
 
-				if (override_volume == 0):
-					self.avs_playback.data['vlc_player'].audio_set_volume(self._settings.currVolume)
-				else:
-					self.avs_playback.data['vlc_player'].audio_set_volume(override_volume)
+					if (override_volume == 0):
+						self.avs_playback.data['vlc_player'].audio_set_volume(self._settings.currVolume)
+					else:
+						self.avs_playback.data['vlc_player'].audio_set_volume(override_volume)
 
-				log.info("{}{}Play retrieved media:{} {} | Count: {}".format(shared.bcolors.BOLD, shared.bcolors.OKBLUE, shared.bcolors.ENDC, gstate.current_item, self._queue.getItemCount()))
-				self.avs_playback.data['vlc_player'].play()
-				time.sleep(.1) # Allow time for state_callback to run
+					self._log.info("{}{}Play retrieved media:{} {} | Count: {}".format(self._bcolors.BOLD, self._bcolors.OKBLUE, self._bcolors.ENDC, gstate.current_item, self._queue.getItemCount()))
+					self.avs_playback.data['vlc_player'].play()
+					time.sleep(.1) # Allow time for state_callback to run
 
-				while self.avs_playback.data['is_playing']: #Wait until current media clip is done playing
-					time.sleep(.5) #Prevent 100% CPU untilzation
-					continue
+					while self.avs_playback.data['is_playing']: #Wait until current media clip is done playing
+						time.sleep(.5) #Prevent 100% CPU untilzation
+						continue
+
+		thread_manager.start(play, self.stop, token, interface_callback, override_volume)
 
 	def clear_queue(self, clear_type):
 		self._queue.clear()
 		if clear_type == 'CLEAR_ALL':
-			if self._vlc_player:
-				self._vlc_player.stop()
+			if self.avs_playback.data['vlc_player']:
+				self.avs_playback.data['vlc_player'].stop()
 
 	def stop(self):
-		if self._vlc_player:
-			self._vlc_player.stop()
+		if self.avs_playback.data['vlc_player']:
+			self.avs_playback.data['vlc_player'].stop()
 
-	def resume(self): #TODO: Probably broken
+	def resume(self): #TODO: Not implemented
 		pass
 
 	def is_playing(self):
-		global media_playing
-		return media_playing
+		return self.avs_playback.data['is_playing']
 
 	def getCurrentItem(self):
 		return gstate.current_item
 
 	def getCurrentToken(self):
 		return gstate.current_token
-
-# Initialize players
-player = MediaPlayer()

@@ -1,46 +1,49 @@
-#alexapi/avs/Interface/SpeechSynthesizer.py
+#alexa/avs/interface/SpeechSynthesizer.py
 
 import json
 import uuid
-import threading
 
 import alexa.helper.shared as shared
-from alexa.player.player import player
 
 class SpeechSynthesizer:
-	_avsi = None
-	_token = None
-
 
 	def __init__(self, avs_interface):
-		self._avsi = avs_interface
+		self._interface_manager = avs_interface
+		self._token = None
 
 	def _playerCallback(self, state):
-		print 'STATE: ' + str(state)
-
 		if state == 3:
 			self.SpeechStarted()
 
 		elif state == 6:
 			self.SpeechFinished()
 
+	def initialState(self):
+		return {
+			"header":{
+				"name":"SpeechState",
+				"namespace":"SpeechSynthesizer"
+			},
+				"payload":{
+				"offsetInMilliseconds":0,
+				"playerActivity":"FINISHED",
+				"token":""
+			}
+		}
+
 	def Speak(self, payload):
 		self._token = payload.json['directive']['payload']['token']
 		content = "file://" + payload.filename
-		player.package.add(token=self._token, content=content)
-		player.play_avs_response(self._token, self._playerCallback)
-
-		#player.pstate.add_mediaInfo(nav_token=nav_token, offset=offset, streamFormat=streamFormat, url=url, play_behavior=play_behavior, content=content)
-		#pThread = threading.Thread(target=player.play_media, args=(nav_token, self.__playerCallback, )) #TODO: Is nav_token unique
-		#pThread.start()
+		shared.player.package.add(token=self._token, content=content)
+		shared.player.play_avs_response(self._token, self._playerCallback) #TODO: Is nav_token unique
 
 	def SpeechStarted(self):
-		j = {
+		speech_started = {
 			"event": {
 				"header": {
 					"namespace": "SpeechSynthesizer",
 					"name": "SpeechStarted",
-					"messageId": "message-ddid-123",
+					"messageId": "",
 				},
 				"payload": {
 					"token": ""
@@ -48,19 +51,20 @@ class SpeechSynthesizer:
 			}
 		}
 
-		data = json.loads(json.dumps(j))
+		msg_id = str(uuid.uuid4())
+		data = json.loads(json.dumps(speech_started))
 		data['event']['payload']['token'] = self._token
-		data['event']['header']['messageId'] = str(uuid.uuid4())
+		data['event']['header']['messageId'] = msg_id
 
 		payload = [
 			('file', ('request', json.dumps(data), 'application/json; charset=UTF-8')),
 		]
 		path = '/{}{}'.format(shared.config['alexa']['API_Version'], shared.config['alexa']['EventPath'])
-		response = self._avsi.get_avs_session().post(path, payload)
-		return response
+
+		return self._interface_manager.send_event(msg_id, path, payload)
 
 	def SpeechFinished(self):
-		j = {
+		speech_finished = {
 			"event": {
 				"header": {
 					"namespace": "SpeechSynthesizer",
@@ -73,13 +77,13 @@ class SpeechSynthesizer:
 			}
 		}
 
-		data = json.loads(json.dumps(j))
+		msg_id = str(uuid.uuid4())
+		data = json.loads(json.dumps(speech_finished))
 		data['event']['payload']['token'] = self._token
-		data['event']['header']['messageId'] = str(uuid.uuid4())
+		data['event']['header']['messageId'] = msg_id
 		payload = [
 			('file', ('request', json.dumps(data), 'application/json; charset=UTF-8')),
 		]
 		path = '/{}{}'.format(shared.config['alexa']['API_Version'], shared.config['alexa']['EventPath'])
-		response = self._avsi.get_avs_session().post(path, payload)
 
-		return response
+		return self._interface_manager.send_event(msg_id, path, payload)

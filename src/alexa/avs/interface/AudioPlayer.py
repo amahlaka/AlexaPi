@@ -2,18 +2,14 @@
 
 import json
 import uuid
-import threading
 
 import alexa.helper.shared as shared
-from alexa.player.player import player
 
 class AudioPlayer:
-	_avsi = None
-	_token = None
-
 
 	def __init__(self, avs_interface):
-		self._avsi = avs_interface
+		self._interface_manager = avs_interface
+		self._token = None
 
 	def _playerCallback(self, state):
 		if state == 3:
@@ -25,20 +21,29 @@ class AudioPlayer:
 		elif state == 8:
 			self.PlaybackNearlyFinished()
 
-	def ClearQueue(self, payload):
-		#https://developer.amazon.com/public/solutions/alexa/alexa-voice-service/reference/audioplayer#clearqueue
+	def initialState(self):
+		return {
+			"header":{
+				"name":"PlaybackState",
+				"namespace":"AudioPlayer"
+			},
+			"payload":{
+				"offsetInMilliseconds":0,
+				"playerActivity":"IDLE",
+				"token":"{{STRING}}"
+			}
+		}
+
+	def ClearQueue(self, payload): #https://developer.amazon.com/public/solutions/alexa/alexa-voice-service/reference/audioplayer#clearqueue
 		#TODO: Not implemented yet
 		clear_type = payload.json['directive']['payload']['clearBehavior']
-		pThread = threading.Thread(target=player.clear_queue_media_player, args=(clear_type, ))
-		pThread.start()
+		shared.player.clear_queue(clear_type)
 
 	def Stop(self, payload):
-		pThread = threading.Thread(target=player.stop_media_player)
-		pThread.start()
+		shared.player.stop()
 
-	def Play(self, payload):
+	def Play(self, payload): #https://developer.amazon.com/public/solutions/alexa/alexa-voice-service/reference/audioplayer#play
 		skip = False
-		#https://developer.amazon.com/public/solutions/alexa/alexa-voice-service/reference/audioplayer#play
 		play_behavior		= payload.json['directive']['payload']['playBehavior']
 		nav_token		= payload.json['directive']['payload']['audioItem']['stream']['token']
 		url			= payload.json['directive']['payload']['audioItem']['stream']['url']
@@ -61,19 +66,18 @@ class AudioPlayer:
 			content = url
 
 		if not skip:
-			player.package.add(token=nav_token, offset=offset, streamFormat=streamFormat, url=url, play_behavior=play_behavior, content=content)
-			pThread = threading.Thread(target=player.play_avs_response, args=(nav_token, self._playerCallback, )) #TODO: Is nav_token unique
-			pThread.start()
+			shared.player.package.add(token=nav_token, offset=offset, streamFormat=streamFormat, url=url, play_behavior=play_behavior, content=content)
+			shared.player.play_avs_response(nav_token, self._playerCallback) #TODO: Is nav_token unique
 		else:
-			print 'Skipping...'
+			print 'Skipping...' #TODO: Is this normal? Find out why we get here
 
 	def PlaybackStarted(self):
-		j = {
+		playback_started = {
 			"event": {
 				"header": {
 					"namespace": "AudioPlayer",
 					"name": "PlaybackStarted",
-					"messageId": "message-ddid-123",
+					"messageId": "{{STRING}}",
 				},
 				"payload": {
 					"token": "",
@@ -82,20 +86,20 @@ class AudioPlayer:
 			}
 		}
 
-		data = json.loads(json.dumps(j))
-		data['event']['header']['messageId'] = str(uuid.uuid4())
-		data['event']['payload']['token'] = player.getCurrentToken()
+		msg_id = str(uuid.uuid4())
+		data = json.loads(json.dumps(playback_started))
+		data['event']['header']['messageId'] = msg_id
+		data['event']['payload']['token'] = shared.player.getCurrentToken()
 		data['event']['payload']['offsetInMilliseconds'] = 0 #TODO: send audio current offset in milliseconds
-
 		payload = [
 			('file', ('request', json.dumps(data), 'application/json; charset=UTF-8')),
 		]
 		path = '/{}{}'.format(shared.config['alexa']['API_Version'], shared.config['alexa']['EventPath'])
-		response = self._avsi.get_avs_session().post(path, payload)
-		self._avsi.process_response(response)
+
+		return self._interface_manager.send_event(msg_id, path, payload)
 
 	def PlaybackNearlyFinished(self):
-		j ={
+		playback_nearly_finished ={
 			"event": {
 				"header": {
 					"namespace": "AudioPlayer",
@@ -109,24 +113,25 @@ class AudioPlayer:
 			}
 		}
 
-		data = json.loads(json.dumps(j))
-		data['event']['header']['messageId'] = str(uuid.uuid4())
-		data['event']['payload']['token'] = player.getCurrentToken()
+		msg_id = str(uuid.uuid4())
+		data = json.loads(json.dumps(playback_nearly_finished))
+		data['event']['header']['messageId'] = msg_id
+		data['event']['payload']['token'] = shared.player.getCurrentToken()
 		data['event']['payload']['offsetInMilliseconds'] = 0 #TODO: send audio current offset in milliseconds
 		payload = [
 			('file', ('request', json.dumps(data), 'application/json; charset=UTF-8')),
 		]
 		path = '/{}{}'.format(shared.config['alexa']['API_Version'], shared.config['alexa']['EventPath'])
-		response = self._avsi.get_avs_session().post(path, payload)
-		self._avsi.process_response(response)
+
+		return self._interface_manager.send_event(msg_id, path, payload)
 
 	def PlaybackFinished(self):
-		j = {
+		playback_finished = {
 			"event": {
 				"header": {
 					"namespace": "AudioPlayer",
 					"name": "PlaybackFinished",
-					"messageId": "",
+					"messageId": "{{STRING}}",
 				},
 				"payload": {
 					"token": "",
@@ -135,13 +140,14 @@ class AudioPlayer:
 			}
 		}
 
-		data = json.loads(json.dumps(j))
-		data['event']['header']['messageId'] = str(uuid.uuid4())
-		data['event']['payload']['token'] = player.getCurrentToken()
+		msg_id = str(uuid.uuid4())
+		data = json.loads(json.dumps(playback_finished))
+		data['event']['header']['messageId'] = msg_id
+		data['event']['payload']['token'] = shared.player.getCurrentToken()
 		data['event']['payload']['offsetInMilliseconds'] = 0 #TODO: send audio current offset in milliseconds
 		payload = [
 			('file', ('request', json.dumps(data), 'application/json; charset=UTF-8')),
 		]
 		path = '/{}{}'.format(shared.config['alexa']['API_Version'], shared.config['alexa']['EventPath'])
-		response = self._avsi.get_avs_session().post(path, payload)
-		self._avsi.process_response(response)
+
+		return self._interface_manager.send_event(msg_id, path, payload)

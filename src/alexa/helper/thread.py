@@ -7,33 +7,31 @@ class ThreadManager:
 	__threads = []
 
 	class __Worker(threading.Thread):
-		def __init__(self):
+		def __init__(self, *args):
+			self._args = args
 			threading.Thread.__init__(self)
 
 		def run(self):
-			self.work()
-
-		def stop(self):
-			raise NotImplementedError("Please Implement this method")
-
-		def work(self, kill_received):
-			raise NotImplementedError("Please Implement this method")
+			if len(self._args) == 0:
+				self.worker()
+			else:
+				self.worker(*self._args)
 
 	def __init__(self):
 		pass
 
-	def start(self, work, stop):
-		if not work or not stop:
-			raise NotImplementedError("Please Implement the 'work' and/or 'stop' method(s)")
+	def start(self, target, stop, *args):
+		if not target or not stop:
+			raise NotImplementedError("Please provide the 'target' and/or 'stop' arg(s)")
 
-		t = self.__Worker()
-		t.work = work
-		t.stop = stop
+		t = self.__Worker(*args)
+		t.worker = target
+		t.thread_stopper = stop
 		self.__threads.append(t)
 		t.start()
 
 	def stop_all(self):
 		for t in self.__threads:
-			t.stop()
+			t.thread_stopper()
 
 thread_manager = ThreadManager()

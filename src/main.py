@@ -14,7 +14,6 @@ from sphinxbase.sphinxbase import *
 import alexa.helper.shared as shared
 import alexa.helper.exit_handler as exit_handler
 from alexa.avs.interface_manager import InterfaceManager
-from alexa.player.player import player
 
 #Get logging
 log = shared.logger('Alexa.main')
@@ -57,10 +56,6 @@ MAX_VOLUME = 100
 MIN_VOLUME = 30
 
 
-def alexa_speech_recognizer():
-	# https://developer.amazon.com/public/solutions/alexa/alexa-voice-service/rest/speechrecognizer-requests
-	avs_interface.send_event('SpeechRecognizer', 'Recognize')
-
 def detect_button(channel):
         global button_pressed
         buttonPress = time.time()
@@ -71,9 +66,10 @@ def detect_button(channel):
                 button_pressed = True
                 time.sleep(.1)
                 if time.time() - buttonPress > 10: # pressing button for 10 seconds triggers a system halt
-			player.play_local(shared.resources_path+'alexahalt.mp3')
+			shared.playback.halt()
 			log.info("{} -- 10 second putton press.  Shutting down. -- {}".format(shared.bcolors.WARNING, shared.bcolors.ENDC))
 			os.system("halt")
+
         log.debug("{}Recording Finished.{}".format(shared.bcolors.OKBLUE, shared.bcolors.ENDC))
         button_pressed = False
         time.sleep(.5) # more time for the button to settle down
@@ -114,11 +110,9 @@ def silence_listener(throwaway_frames):
 
 					if (isSpeech == False):
 						silenceRun = silenceRun + 1
-						#print "0"
 					else:
 						silenceRun = 0
 						numSilenceRuns = numSilenceRuns + 1
-						#print "1"
 
 			# only count silence runs after the first one
 			# (allow user to speak for total of max recording length if they haven't said anything yet)
@@ -127,8 +121,7 @@ def silence_listener(throwaway_frames):
 			shared.led.rec_on()
 
 		log.debug("Debug: End recording")
-
-		if shared.debug: player.play_local(shared.resources_path+'beep.wav', 100)
+		if shared.debug: shared.playback.beep()
 
 		shared.led.rec_off()
 		rf = open(shared.tmp_path + 'recording.wav', 'w')
@@ -166,20 +159,16 @@ def start():
 
 			# if trigger word was said
 			if decoder.hyp() != None:
-				if player.is_playing():
-					player.stop()
-					time.sleep(.5) #add delay before audio prompt
-
-				if player.is_playing():
-					player.stop_player()
+				if shared.player.is_playing():
+					shared.player.stop()
 					time.sleep(.5) #add delay before audio prompt
 
 				start = time.time()
 				record_audio = True
-				player.play_local(shared.resources_path+'alexayes.mp3', 0)
+				shared.playback.yes()
 
 			elif button_pressed:
-				if player.is_playing: player.stop()
+				if shared.player.is_playing: player.stop()
 				record_audio = True
 
 		# do the following things if either the button has been pressed or the trigger word has been said
@@ -196,13 +185,13 @@ def start():
 					if os.path.isfile(file_path):
 						os.remove(file_path)
 				except Exception as e:
-					print(e)
+					log.execption(e)
 
 		log.info("Starting to listen...")
 		silence_listener(VAD_THROWAWAY_FRAMES)
 
 		log.debug("Debug: Sending audio to be processed")
-		alexa_speech_recognizer()
+		avs_interface.trigger_event('SpeechRecognizer', 'Recognize') # https://developer.amazon.com/public/solutions/alexa/alexa-voice-service/rest/speechrecognizer-requests
 
 		# Now that request is handled restart audio decoding
 		decoder.end_utt()
@@ -213,7 +202,7 @@ def setup():
 
 	#hardware = hadware.Somthing() #Initialize hardware
 	avs_interface = InterfaceManager()
-	if (shared.silent == False): player.play_local(shared.resources_path+"hello.mp3")
+	if (shared.silent == False): shared.playback.hello()
 
 if __name__ == "__main__":
 	try:
