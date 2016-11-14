@@ -22,7 +22,6 @@ log = alexa.logger.getLogger(__name__)
 mc = Client(servers, debug=1)
 currentFuncName = sys._getframe().f_code.co_name
 
-
 class res_type:
 	BLANK	= 0
 	DATA	= 1
@@ -64,9 +63,9 @@ class Http:
 					exit(r)
 					return
 
-				log.debug('')
+				log.newline()
 				log.debug('Pinging AVS...')
-				log.debug('')
+				log.newline()
 
 				r = self._session.get('/ping')
 				exit(r) #TODO: Do I need to close after every ping?
@@ -138,6 +137,7 @@ class Http:
 			return s
 
 		def _check_internet(self):
+			log.start()
 			log.info("Checking Internet Connection...")
 			try:
 				self._initialize_new_http_session('https://api.amazon.com/auth/o2/token')

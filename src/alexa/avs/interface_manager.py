@@ -55,8 +55,8 @@ class InterfaceManager:
 					j = json.loads(payload.get_payload())
 					log.debug('')
 					log.debug('')
-					log.debug("{}->{}{}JSON String Received:{} {}".format(log.color.BOLD, log.color.ENDC, log.color.OKBLUE, log.color.ENDC, json.dumps(j)))
-					log.debug('{}Processing payload{} - count: {}'.format(log.color.OKBLUE, log.color.ENDC, (msg_count - loop_count)))
+					log.debug("$BOLD$BG-GREEN$WHITE->$RESET$BLUEJSON String Received:$RESET$ITALICS%s$RESET" % (json.dumps(j),))
+					log.debug('Processing payload - count: %s', (msg_count - loop_count))
 					log.debug('')
 					log.debug('')
 
@@ -126,7 +126,7 @@ class InterfaceManager:
 			if directive_method:
 				log.info('')
 				log.info('')
-				log.info('{}{}Dispatching directive(namespace/name):{} {}/{}...'.format(log.color.BOLD, log.color.OKBLUE, log.color.ENDC, namespace, directive_name))
+				log.info('$BLUEDispatching directive(namespace/name):$RESET %s/%s...', namespace, directive_name)
 				log.info('')
 				thread_manager.start(directive_method, self.stop, payload)
 				#gThread = threading.Thread(target=directive_method, args=(payload,))
@@ -135,13 +135,13 @@ class InterfaceManager:
 
 		log.info('')
 		log.info('')
-		log.info('{}Unknown directive(namespace/name):{} {}/{}'.format(log.color.FAIL, log.color.ENDC, namespace, directive_name))
+		log.info('$WARNUnknown directive$RESET(namespace/name): %s/%s', namespace, directive_name)
 		log.info('')
 
 	def send_event(self, msg_id, path, payload): #Events as sent by an AVS Interface
 		log.debug('')
 		log.debug('')
-		log.debug("{}<-{}{}JSON String Sent:{} {}".format(log.color.BOLD, log.color.ENDC, log.color.OKBLUE, log.color.ENDC, payload[0][1][1]))
+		log.debug("$BOLD$BG-GREEN$WHITE<-$RESET$BLUEJSON String Sent: $RESET%s", payload[0][1][1])
 		log.debug('')
 		log.debug('')
 
@@ -149,8 +149,6 @@ class InterfaceManager:
 
 		if response:
 			thread_manager.start(self._directive_deconstructor.processor, self.stop, response)
-			#gThread = threading.Thread(target=self._directive_deconstructor.processor, args=(response,))
-			#gThread.start()
 
 	def trigger_event(self, namespace, event_name): #Only used by main.py to send a speech event to AVS
 		class_instance = getattr(self, str(namespace), None)
@@ -159,18 +157,16 @@ class InterfaceManager:
 			if event_method:
 				log.info('')
 				log.info('')
-				log.info('{}{}Dispatching event(namespace/name):{} {}/{}...'.format(log.color.BOLD, log.color.OKBLUE, log.color.ENDC, namespace, event_name))
+				log.info('$BLUEDispatching event(namespace/name):$RESET %s/%s...', namespace, event_name)
 				log.info('')
 				response = event_method()
 
 				if response:
-					#gThread = threading.Thread(target=self._directive_deconstructor.processor, args=(response,))
-					#gThread.start()
 					thread_manager.start(self._directive_deconstructor.processor, self.stop, response)
 
 				return
 
 		log.info('')
 		log.info('')
-		log.info('{}Unknown event(namespace/name):{} {}/{}'.format(log.color.FAIL, log.color.ENDC, namespace, event_name))
+		log.info('$WARNUnknown event$RESET(namespace/name):%s/%s', namespace, event_name)
 		log.info('')

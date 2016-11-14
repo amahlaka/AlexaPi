@@ -1,6 +1,7 @@
 #alexa/logger/log.py
 
 import sys
+import types
 import logging
 import traceback
 
@@ -9,12 +10,14 @@ from alexa.logger.colors import *
 class _AlexaCustomLogger:
 
 	class ColorFormatter(logging.Formatter):
-		FORMAT = ("%(asctime)s - [$BOLD%(name)-20s$RESET][%(levelname)-18s]" "%(message)s " "($BOLD%(filename)s$RESET:%(lineno)d)")
+		FORMAT = ("%(asctime)s - [$BOLD%(name)-30s$RESET][%(levelname)-20s]" " %(message)s " "($BOLD%(filename)s$RESET:%(lineno)d)")
 
 		def __init__(self, use_color=True):
 			msg = self.format_formatter(self.FORMAT, use_color)
 			logging.Formatter.__init__(self, msg)
+
 			self._use_color = use_color
+			self._fmt_modified = False
 
 		def format_formatter(self, msg, use_color):
 			if use_color:
@@ -25,6 +28,10 @@ class _AlexaCustomLogger:
 			return msg
 
 		def format(self, record):
+			if self._fmt_modified:
+				self._fmt = self.format_formatter(self.FORMAT, self._use_color)
+				self._fmt_cleared = False
+
 			levelname = record.levelname
 			msg = record.msg
 
@@ -37,49 +44,68 @@ class _AlexaCustomLogger:
 			# colorize and format message...if msg is a str
 			if isinstance(msg, basestring):
 				if self._use_color:
+					if msg.find('$$BLANK$$') > -1:
+						self._fmt = ''
+						self._fmt_modified = True
+
+					elif msg.find('$$LOG_START$$') > -1:
+						self._fmt = '%(message)s'
+						msg =           '\n\n\n\n\n$GREEN$BOLD ########################################################## \n' + \
+								'##                                                        ##\n' + \
+								'##              $RESETALEXA LOGGING STARTING...$GREEN$BOLD                 ##\n' + \
+								'##                                                        ##\n' + \
+								' ##########################################################$RESET\n\n\n\n\n'
+						self._fmt_modified = True
+
 					for k,v in color.COLORS.items():
 						msg = msg.replace("$" + k, color.COLOR % (v+30)) \
 						.replace("$BG" + k,  color.COLOR % (v+40)) \
 						.replace("$BG-" + k, color.COLOR % (v+40)) \
 						.replace("$RESET", color.RESET) \
-						.replace("$BOLD", color.BOLD)
+						.replace("$BOLD", color.BOLD) \
+						.replace("$ITALICS", color.ITALICS) \
+						.replace("$UNDERLINE", color.UNDERLINE) \
+						.replace("$STRIKETHROUGH", color.STRIKETHROUGH)
 
-					record.msg = msg
+						record.msg = msg
 				else:
-					record.msg = msg.replace("$RESET", "").replace("$BOLD", "")
+					record.msg = msg.replace("$RESET", "").replace("$BOLD", "$$BLANK$$").replace('$$LOG_START$$', '').replace('', '')
 
 			return logging.Formatter.format(self, record)
 
 	def __init__(self):
 		self._logger = logging.getLogger()
 		self._logger.setLevel(logging.DEBUG)
-		self._formatter = self.ColorFormatter()
-		handler = logging.StreamHandler(sys.stdout)
-		handler.setFormatter(self._formatter)
+		self._handler = logging.StreamHandler(sys.stdout)
+		self._handler.setFormatter(self.ColorFormatter())
+		self._logger.addHandler(self._handler)
 
-		# add the handlers to the logger
-		self._logger.addHandler(handler)
+	def log_start(self, logger):
+		logger.info('$$LOG_START$$')
+
+	def log_newline(self, logger):
+		logger.info('$$BLANK$$')
 
 	def setup(self, config, log_file):
+		# clear current handlers
 		for hdlr in self._logger.handlers[:]:  # remove all old handlers
 			self._logger.removeHandler(hdlr)
 
 		#if 'debug' in config:
 		if log_file:
-			# clear current handlers
-			# create a file handler
 			if 'logFileLocation' in config['debug']:
 				log_file_location =  config['debug']['logFileLocation']
 			else:
 				log_file_location = '/var/log/Alexa.log'
 
+			# create a file handler
 			handler = logging.FileHandler(log_file_location)
-			print '{}File logging enabled:{} Logging to {}'.format(color.BOLD, color.RESET, log_file_location)
+			print 'File logging {}enabled{}: Logging to {}{}{}'.format(color.BOLD, color.RESET, color.ITALICS, log_file_location, color.RESET)
 
 		else:
 			handler = logging.StreamHandler(sys.stdout)
 
-		handler.setFormatter(self._formatter)
+		handler.setFormatter(self.ColorFormatter())
 		self._logger.addHandler(handler)
 		self._set_logging(config)
 
@@ -138,6 +164,8 @@ class _AlexaCustomLogger:
 	def getLogger(self, name):
 		log = logging.getLogger(name)
 		setattr(log, 'color', color)
+		setattr(log, 'newline', types.MethodType(self.log_newline, log))
+		setattr(log, 'start', types.MethodType(self.log_start, log))
 
 		def exception_hook(exc_type, exc_value, exc_traceback):
 			log.critical("Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback))
