@@ -11,12 +11,12 @@ from pocketsphinx import get_model_path
 from pocketsphinx.pocketsphinx import *
 from sphinxbase.sphinxbase import *
 
-from alexa import alexa
+import alexa
 from alexa.avs.interface_manager import InterfaceManager
 import alexa.exit_handler as exit_handler
 
 #Get logging
-log = alexa.logger('Alexa.main')
+log = alexa.logger.getLogger('Alexa.main')
 
 #Setup
 recorded = False
@@ -210,7 +210,8 @@ if __name__ == "__main__":
 	except:
 		exc_type, exc_value, exc_traceback = sys.exc_info()
 		lines = traceback.format_exception(exc_type, exc_value, exc_traceback)
-		print ''.join('!! ' + line for line in lines)  # Log it or whatever here
+		#log.execption(''.join('!! ' + line for line in lines))  # Log it or whatever here
+		print(''.join('!! ' + line for line in lines))  # Log it or whatever here
 
 	finally:
 		exit.cleanup()

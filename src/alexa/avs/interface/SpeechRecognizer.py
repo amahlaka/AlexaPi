@@ -3,7 +3,7 @@
 import json
 import uuid
 
-from alexa import alexa
+import alexa
 
 class SpeechRecognizer:
 

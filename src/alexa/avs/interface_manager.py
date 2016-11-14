@@ -4,15 +4,15 @@ import os
 import time
 import json
 import email
-import threading
 
-from alexa import alexa
-from alexa.http.http import Http
+import alexa
+from alexa.http import Http
+from alexa.thread import thread_manager
 
 MODULE_ROOT = 'alexa.avs'
 INTERFACE_DIR = 'interface'
 
-log = alexa.logger(__name__)
+log = alexa.logger.getLogger(__name__)
 
 class InterfaceManager:
 	class Payload:
@@ -46,14 +46,17 @@ class InterfaceManager:
 			alexa.led.blink_valid_data_received()
 			data = "Content-Type: " + r.headers['content-type'] +'\r\n\r\n'+ r.content
 			msg = email.message_from_string(data)
+			msg_count = len(msg.get_payload())
+			loop_count = 0
 
 			for payload in msg.get_payload():
-				log.debug('Processing payload')
+
 				if payload.get_content_type() == "application/json":
 					j = json.loads(payload.get_payload())
 					log.debug('')
 					log.debug('')
-					log.debug("{}->{}{}JSON String Received:{} {}".format(alexa.bcolors.BOLD, alexa.bcolors.ENDC, alexa.bcolors.OKBLUE, alexa.bcolors.ENDC, json.dumps(j)))
+					log.debug("{}->{}{}JSON String Received:{} {}".format(log.color.BOLD, log.color.ENDC, log.color.OKBLUE, log.color.ENDC, json.dumps(j)))
+					log.debug('{}Processing payload{} - count: {}'.format(log.color.OKBLUE, log.color.ENDC, (msg_count - loop_count)))
 					log.debug('')
 					log.debug('')
 
@@ -71,10 +74,9 @@ class InterfaceManager:
 					self._payload.json = j
 					self._payload.filename = filename
 					self._interface_manager.process_directive(self._payload)
-					time.sleep(.2) #Need a pause to prevent audio race condition
+					time.sleep(.1) #Need a pause to prevent audio race condition
 
-			#if r: #TODO: Do I still need? Moving all connection handling to http module
-			#	r.close()
+				loop_count += 1
 
 	def __init__(self):
 		self._synchronize_state = []
@@ -107,6 +109,9 @@ class InterfaceManager:
 
 		self._avs_session.synchronizeState(self._synchronize_state)
 
+	def stop(self):
+		pass
+
 	def get_avs_session(self):
 		return self._avs_session.get_avs_session()
 
@@ -121,29 +126,31 @@ class InterfaceManager:
 			if directive_method:
 				log.info('')
 				log.info('')
-				log.info('{}{}Dispatching directive(namespace/name):{} {}/{}...'.format(alexa.bcolors.BOLD, alexa.bcolors.OKBLUE, alexa.bcolors.ENDC, namespace, directive_name))
+				log.info('{}{}Dispatching directive(namespace/name):{} {}/{}...'.format(log.color.BOLD, log.color.OKBLUE, log.color.ENDC, namespace, directive_name))
 				log.info('')
-				gThread = threading.Thread(target=directive_method, args=(payload,))
-				gThread.start()
+				thread_manager.start(directive_method, self.stop, payload)
+				#gThread = threading.Thread(target=directive_method, args=(payload,))
+				#gThread.start()
 				return
 
 		log.info('')
 		log.info('')
-		log.info('{}Unknown directive(namespace/name):{} {}/{}'.format(alexa.bcolors.FAIL, alexa.bcolors.ENDC, namespace, directive_name))
+		log.info('{}Unknown directive(namespace/name):{} {}/{}'.format(log.color.FAIL, log.color.ENDC, namespace, directive_name))
 		log.info('')
 
 	def send_event(self, msg_id, path, payload): #Events as sent by an AVS Interface
 		log.debug('')
 		log.debug('')
-		log.debug("{}<-{}{}JSON String Sent:{} {}".format(alexa.bcolors.BOLD, alexa.bcolors.ENDC, alexa.bcolors.OKBLUE, alexa.bcolors.ENDC, payload[0][1][1]))
+		log.debug("{}<-{}{}JSON String Sent:{} {}".format(log.color.BOLD, log.color.ENDC, log.color.OKBLUE, log.color.ENDC, payload[0][1][1]))
 		log.debug('')
 		log.debug('')
 
 		response = self._avs_session.post(msg_id, path, payload)
 
 		if response:
-			gThread = threading.Thread(target=self._directive_deconstructor.processor, args=(response,))
-			gThread.start()
+			thread_manager.start(self._directive_deconstructor.processor, self.stop, response)
+			#gThread = threading.Thread(target=self._directive_deconstructor.processor, args=(response,))
+			#gThread.start()
 
 	def trigger_event(self, namespace, event_name): #Only used by main.py to send a speech event to AVS
 		class_instance = getattr(self, str(namespace), None)
@@ -152,17 +159,18 @@ class InterfaceManager:
 			if event_method:
 				log.info('')
 				log.info('')
-				log.info('{}{}Dispatching event(namespace/name):{} {}/{}...'.format(alexa.bcolors.BOLD, alexa.bcolors.OKBLUE, alexa.bcolors.ENDC, namespace, event_name))
+				log.info('{}{}Dispatching event(namespace/name):{} {}/{}...'.format(log.color.BOLD, log.color.OKBLUE, log.color.ENDC, namespace, event_name))
 				log.info('')
 				response = event_method()
 
 				if response:
-					gThread = threading.Thread(target=self._directive_deconstructor.processor, args=(response,))
-					gThread.start()
+					#gThread = threading.Thread(target=self._directive_deconstructor.processor, args=(response,))
+					#gThread.start()
+					thread_manager.start(self._directive_deconstructor.processor, self.stop, response)
 
 				return
 
 		log.info('')
 		log.info('')
-		log.info('{}Unknown event(namespace/name):{} {}/{}'.format(alexa.bcolors.FAIL, alexa.bcolors.ENDC, namespace, event_name))
+		log.info('{}Unknown event(namespace/name):{} {}/{}'.format(log.color.FAIL, log.color.ENDC, namespace, event_name))
 		log.info('')

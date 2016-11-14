@@ -3,23 +3,14 @@
 import json
 import uuid
 
-from alexa import alexa
+import alexa
 
 class AudioPlayer:
 
 	def __init__(self, avs_interface):
+		alexa.player.bind(self)
 		self._interface_manager = avs_interface
 		self._token = None
-
-	def _playerCallback(self, state):
-		if state == 3:
-			self.PlaybackStarted()
-
-		elif state == 6:
-			self.PlaybackFinished()
-
-		elif state == 8:
-			self.PlaybackNearlyFinished()
 
 	def initialState(self):
 		return {
@@ -37,7 +28,7 @@ class AudioPlayer:
 	def ClearQueue(self, payload): #https://developer.amazon.com/public/solutions/alexa/alexa-voice-service/reference/audioplayer#clearqueue
 		#TODO: Not implemented yet
 		clear_type = payload.json['directive']['payload']['clearBehavior']
-		alexa.player.clear_queue(clear_type)
+		alexa.player.clear_queue(clear_type, self._playerCallback)
 
 	def Stop(self, payload):
 		alexa.player.stop()
@@ -67,7 +58,7 @@ class AudioPlayer:
 
 		if not skip:
 			alexa.player.package.add(token=nav_token, offset=offset, streamFormat=streamFormat, url=url, play_behavior=play_behavior, content=content)
-			alexa.player.play_avs_response(nav_token, self._playerCallback) #TODO: Is nav_token unique
+			alexa.player.play_avs_response(nav_token) #TODO: Is nav_token unique
 		else:
 			print 'Skipping...' #TODO: Is this normal? Find out why we get here
 

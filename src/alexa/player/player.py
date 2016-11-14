@@ -2,22 +2,33 @@
 
 import vlc
 import time
-import requests
-import threading
 from collections import deque
 
+import alexa
 from alexa.player import tunein
 from alexa.thread import thread_manager
+from alexa.avs.interface_state_manager import StateManager
 
+log = alexa.logger.getLogger(__name__)
 tunein_parser = tunein.TuneIn(5000)
 
 media_playing = False
 media_paused = False
 
 
+class StateDiagram:
+	IDLE		= 0
+	PLAYING		= 1
+	STOPPED		= 2
+	PAUSED		= 3
+	BUFFER_UNDERRUN	= 4
+	FINISHED	= 5
+
 class GlobalMediaState:
 	def __init__(self):
 		self.current_item = None
+		self.current_token = None
+		self.current_state = StateDiagram.IDLE
 
 gstate = GlobalMediaState()
 
@@ -88,16 +99,14 @@ class MediaPlayer():
 
 	class _Queue():
 
-		def __init__(self, log, bcolors):
-			self._log = log
-			self._bcolors = bcolors
+		def __init__(self):
 			self._q = deque() #A Thread safe queue used to play audio files play sequencially (FIFO)
 			self._item_count = 0
 
 		def addItem(self, item):
 			self._q.appendleft(item)
 			self._item_count =  sum(1 for i in self._q)
-			self._log.info("{}Add to queue:{} {} | Items remaining in queue: {}".format(self._bcolors.OKBLUE, self._bcolors.ENDC, item, self._item_count))
+			log.info("{}Add to queue:{} {} | Items remaining in queue: {}".format(log.color.OKBLUE, log.color.ENDC, item, self._item_count))
 
 		def getNextItem(self):
 			if self._q:
@@ -110,56 +119,19 @@ class MediaPlayer():
 		def getItemCount(self):
 			return self._item_count
 
-	def __init__(self, logger, bcolors):
-		self.avs_playback = PlaybackDataContainer(is_playing=False, is_paused=False, vlc_player=None, interface_callback=None, queue_almost_empty=False)
-		self._bcolors = bcolors
-		self._log = logger(__name__)
+	def __init__(self):
+		self.avs_playback = PlaybackDataContainer(token=None, is_playing=False, is_paused=False, vlc_player=None, interface_callback=True, queue_almost_empty=False)
+		self._state_manager = StateManager()
+		self.audio_player_interface = False
 		self.package = self._MediaPackage()
 		self._settings = self._Settings()
-		self._vlc_instance = vlc.Instance('--aout=alsa') # , '--alsa-audio-device=mono', '--file-logging', '--logfile=vlc-self._log.txt')
-		self._queue = self._Queue(self._log, bcolors)
+		self._vlc_instance = vlc.Instance('--aout=alsa') # , '--alsa-audio-device=mono', '--file-logging', '--logfile=vlc-log.txt')
+		self._queue = self._Queue()
 
-	def _vlc_callback(self, event, playback):
-		def callback(event, playback):
-			vlc_state = playback.data['vlc_player'].get_state()
-			caller_name = playback.data['caller_name']
-
-			self._log.debug("{}Media Player State:{} {}/{}".format(self._bcolors.OKGREEN, self._bcolors.ENDC, vlc_state, caller_name))
-
-			if playback.data['interface_callback'] is not None: #Do callback with VLC state msg
-				playback.data['interface_callback'](vlc_state)
-
-			if vlc_state == vlc.State.Playing:	#Playing
-				playback.data['is_playing'] = True
-				playback.data['is_paused'] = False
-
-				if not self._queue.getItemCount() == 0 and 'queue_almost_empty' in playback.data and playback.data['queue_almost_empty']: #Do callback with msg playback almost empty
-					playback.data['interface_callback'](8)
-
-			elif vlc_state == vlc.State.Paused:	#Paused
-				playback.data['is_playing'] = False
-				playback.data['is_paused'] = True
-
-			elif vlc_state == vlc.State.Stopped:	#Stopped
-				playback.data['is_playing'] = False
-
-			elif vlc_state == vlc.State.Ended:	#Ended
-				playback.data['is_playing'] = False
-
-				#if playback.data['playback_type'] == 'remote' and self._queue.getItemCount() == 0:
-				#	self._log.debug('Clearing...')
-				#	self.package.clr()
-				#	gstate.current_item = ''
-
-			elif vlc_state == vlc.State.Error:	#Error
-				playback.data['is_playing'] = False
-				playback.data['is_paused'] = False
-
-		thread_manager.start(callback, self.stop, event, playback)
 
 	def _tuneinplaylist(self, url):
 		global tunein_parser
-		self._log.debug("TUNE IN URL = {}".format(url))
+		log.debug("TUNE IN URL = {}".format(url))
 		req = requests.get(url)
 		lines = req.content.split('\n')
 
@@ -169,8 +141,12 @@ class MediaPlayer():
 
 		return ""
 
-	def play_local(self, file, interface_callback=False, overRideVolume=0):
-		playback = PlaybackDataContainer(is_playing=False, vlc_player=None, interface_callback=None)
+	def bind(self, audio_player_interface):
+		if audio_player_interface:
+			self.audio_player_interface = audio_player_interface
+
+	def play_local(self, file, overRideVolume=0):
+		playback = PlaybackDataContainer(is_playing=False, vlc_player=None, interface_callback=False)
 		playback.data['caller_name'] = 'play_local'
 
 		if playback.data['is_playing'] is False:
@@ -180,14 +156,14 @@ class MediaPlayer():
 			media = self._vlc_instance.media_new(file)
 			playback.data['vlc_player'].set_media(media)
 			events = media.event_manager()
-			events.event_attach(vlc.EventType.MediaStateChanged, self._vlc_callback, playback)
+			events.event_attach(vlc.EventType.MediaStateChanged, self._state_manager.callback, playback)
 
 			if (overRideVolume == 0):
 				playback.data['vlc_player'].audio_set_volume(self._settings.currVolume)
 			else:
 				playback.data['vlc_player'].audio_set_volume(overRideVolume)
 
-			self._log.info('{}{}Play local media:{} {}'.format(self._bcolors.BOLD, self._bcolors.OKBLUE, self._bcolors.ENDC, file))
+			log.info('Play local media: %s', (file,))
 			playback.data['vlc_player'].play()
 			time.sleep(.1) # Allow time for state_callback to run
 
@@ -195,11 +171,12 @@ class MediaPlayer():
 				time.sleep(.1) #Prevent 100% CPU untilzation and adds a slight pause between alexa responses
 				continue
 
-	def play_avs_response(self, token, interface_callback=False, override_volume=0):
-		def play(token, interface_callback, override_volume):
+	def play_avs_response(self, token, override_volume=0):
+		def play(token, override_volume):
 			self.avs_playback.data['caller_name'] = 'play_avs_response'
 
 			if token:
+				self.avs_playback.data['token'] = token
 				self._queue.addItem(token)
 
 			while self._queue.getItemCount() > 0:
@@ -209,7 +186,6 @@ class MediaPlayer():
 					self.avs_playback.data['is_playing'] = True
 					self.avs_playback.data['is_paused'] = False
 					self.avs_playback.data['token'] = token
-					self.avs_playback.data['interface_callback'] = interface_callback
 
 					gstate.current_token = token
 
@@ -230,14 +206,15 @@ class MediaPlayer():
 					media = self._vlc_instance.media_new(content)
 					self.avs_playback.data['vlc_player'].set_media(media)
 					events = media.event_manager()
-					events.event_attach(vlc.EventType.MediaStateChanged, self._vlc_callback, self.avs_playback)
+					events.event_attach(vlc.EventType.MediaStateChanged, self._state_manager.callback, self.avs_playback)
 
+					print '******' + str(override_volume)
 					if (override_volume == 0):
 						self.avs_playback.data['vlc_player'].audio_set_volume(self._settings.currVolume)
 					else:
 						self.avs_playback.data['vlc_player'].audio_set_volume(override_volume)
 
-					self._log.info("{}{}Play retrieved media:{} {} | Count: {}".format(self._bcolors.BOLD, self._bcolors.OKBLUE, self._bcolors.ENDC, gstate.current_item, self._queue.getItemCount()))
+					log.info("{}{}Play retrieved media:{} {} | Items remaining in queue: {}".format(log.color.BOLD, log.color.OKBLUE, log.color.ENDC, gstate.current_item, self._queue.getItemCount()))
 					self.avs_playback.data['vlc_player'].play()
 					time.sleep(.1) # Allow time for state_callback to run
 
@@ -245,9 +222,9 @@ class MediaPlayer():
 						time.sleep(.5) #Prevent 100% CPU untilzation
 						continue
 
-		thread_manager.start(play, self.stop, token, interface_callback, override_volume)
+		thread_manager.start(play, self.stop, token, override_volume)
 
-	def clear_queue(self, clear_type):
+	def clear_queue(self, clear_type, callback):
 		self._queue.clear()
 		if clear_type == 'CLEAR_ALL':
 			if self.avs_playback.data['vlc_player']:
@@ -268,3 +245,6 @@ class MediaPlayer():
 
 	def getCurrentToken(self):
 		return gstate.current_token
+
+	def getCurrentState(self):
+		return gstate.current_state

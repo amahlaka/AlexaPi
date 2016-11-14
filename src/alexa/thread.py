@@ -1,6 +1,9 @@
 #alexa/thread.py
 
 import threading
+from alexa import logger
+
+log = logger.getLogger(__name__)
 
 class ThreadManager:
 	__threads = []
@@ -11,10 +14,13 @@ class ThreadManager:
 			threading.Thread.__init__(self)
 
 		def run(self):
-			if len(self._args) == 0:
-				self.worker()
-			else:
-				self.worker(*self._args)
+			try:
+				if len(self._args) == 0:
+					self.worker()
+				else:
+					self.worker(*self._args)
+			except Exception:
+				log.exception("message")
 
 	def __init__(self):
 		pass
