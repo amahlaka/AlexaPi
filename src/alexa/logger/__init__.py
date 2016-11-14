@@ -12,7 +12,7 @@ class _AlexaCustomLogger:
 	class ColorFormatter(logging.Formatter):
 		FORMAT = ("%(asctime)s - [$BOLD%(name)-30s$RESET][%(levelname)-20s]" " %(message)s " "($BOLD%(filename)s$RESET:%(lineno)d)")
 
-		def __init__(self, use_color=True):
+		def __init__(self, use_color=False):
 			msg = self.format_formatter(self.FORMAT, use_color)
 			logging.Formatter.__init__(self, msg)
 
@@ -60,16 +60,30 @@ class _AlexaCustomLogger:
 					for k,v in color.COLORS.items():
 						msg = msg.replace("$" + k, color.COLOR % (v+30)) \
 						.replace("$BG" + k,  color.COLOR % (v+40)) \
-						.replace("$BG-" + k, color.COLOR % (v+40)) \
-						.replace("$RESET", color.RESET) \
-						.replace("$BOLD", color.BOLD) \
-						.replace("$ITALICS", color.ITALICS) \
-						.replace("$UNDERLINE", color.UNDERLINE) \
-						.replace("$STRIKETHROUGH", color.STRIKETHROUGH)
+						.replace("$BG-" + k, color.COLOR % (v+40))
 
-						record.msg = msg
+					msg = msg.replace("$RESET", color.RESET) \
+					.replace("$BOLD", color.BOLD) \
+					.replace("$ITALICS", color.ITALICS) \
+					.replace("$UNDERLINE", color.UNDERLINE) \
+					.replace("$STRIKETHROUGH", color.STRIKETHROUGH)
 				else:
-					record.msg = msg.replace("$RESET", "").replace("$BOLD", "$$BLANK$$").replace('$$LOG_START$$', '').replace('', '')
+					for k,v in color.COLORS.items():
+						msg = msg.replace("$" + k, '') \
+						.replace("$BG" + k,  '') \
+						.replace("$BG-" + k, '')
+
+					msg = msg.replace("$RESET", '') \
+					.replace("$BOLD", '') \
+					.replace("$ITALICS", '') \
+					.replace("$UNDERLINE", '') \
+					.replace("$STRIKETHROUGH", '') \
+					.replace("$RESET", '') \
+					.replace("$$BLANK$$", '$$BLANK$$') \
+					.replace('$$LOG_START$$', '')
+
+
+				record.msg = msg
 
 			return logging.Formatter.format(self, record)
 
@@ -80,10 +94,10 @@ class _AlexaCustomLogger:
 		self._handler.setFormatter(self.ColorFormatter())
 		self._logger.addHandler(self._handler)
 
-	def log_start(self, logger):
+	def _log_start(self, logger):
 		logger.info('$$LOG_START$$')
 
-	def log_newline(self, logger):
+	def _log_newline(self, logger):
 		logger.info('$$BLANK$$')
 
 	def setup(self, config, log_file):
@@ -106,10 +120,9 @@ class _AlexaCustomLogger:
 			handler = logging.StreamHandler(sys.stdout)
 
 		handler.setFormatter(self.ColorFormatter())
-		self._logger.addHandler(handler)
-		self._set_logging(config)
+		self._set_logging(config, handler)
 
-	def _set_logging(self, config):
+	def _set_logging(self, config, handler):
 		if config and 'debug' in config:
 			if 'alexa' in config['debug']:
 				self._logger.setLevel(self._get_debug_level(config['debug']['alexa']))
@@ -135,6 +148,13 @@ class _AlexaCustomLogger:
 			else:
 				hyper_logger = logging.getLogger('requests')
 				hyper_logger.setLevel(logging.CRITICAL)
+
+			if 'colorize' in config['debug']:
+				colorize = config['debug']['colorize']
+				if colorize:
+					handler.setFormatter(self.ColorFormatter(True))
+
+		self._logger.addHandler(handler)
 
 
 	def _get_debug_level(self, name):
@@ -164,8 +184,8 @@ class _AlexaCustomLogger:
 	def getLogger(self, name):
 		log = logging.getLogger(name)
 		setattr(log, 'color', color)
-		setattr(log, 'newline', types.MethodType(self.log_newline, log))
-		setattr(log, 'start', types.MethodType(self.log_start, log))
+		setattr(log, 'newline', types.MethodType(self._log_newline, log))
+		setattr(log, 'start', types.MethodType(self._log_start, log))
 
 		def exception_hook(exc_type, exc_value, exc_traceback):
 			log.critical("Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback))
