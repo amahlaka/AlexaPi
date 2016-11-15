@@ -8,7 +8,7 @@ import tempfile
 import RPi.GPIO as GPIO
 from config import config
 import logger
-from player.player import MediaPlayer
+from player import MediaPlayer
 from thread import thread_manager
 
 ROOT_DIR = os.path.dirname(os.path.abspath('./src'))

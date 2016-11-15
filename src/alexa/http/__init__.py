@@ -89,7 +89,7 @@ class Http:
 			def addItem(self, item):
 				self._q.appendleft(item)
 				self._item_count =  sum(1 for i in self._q)
-				#log.debug("{}Add to http queue:{} {} | Count: {}".format(log.color.OKBLUE, log.color.ENDC, item, self._item_count))
+				#log.debug("$BOLD$BLUEAdd to http queue:$RESET %s | Count: %s", item, self._item_count)
 
 			def pop(self):
 				current_item = self._q.pop()
@@ -247,7 +247,7 @@ class Http:
 					response.close()
 					return [res_type.ERROR]
 
-			log.exception('{}Unknown response: {} {}'.format(log.color.FAIL, response, log.color.ENDC))
+			log.exception('$BOLD$WARNUnknown response:$RESET $ITALICS%s$RESET', response)
 			alexa.led.blink_error()
 			alexa.playback.error()
 
@@ -256,18 +256,18 @@ class Http:
 		def _error_session_callback(self, exception):
 			if 'errno' in exception:
 				if exception.errno == 32: #Broken Pipe (Most likely invalid token. Get a new one
-					log.exception('An http error has occurred!! - $BOLDerror #%$RESET', (exception.errno,))
+					log.exception('$BOLD$REDAn http error has occurred!!$RESET - $ITALICSerror #%$RESET', (exception.errno,))
 					self._authenticate(True)
 
 				elif exception.errno < 0: #TODO: A really bad requests error?
-					log.exception('{}An http error has occurred!!{} - error #{}'.format(log.color.WARNING, log.color.ENDC, exception.errno))
+					log.exception('$BOLD$REDAn http error has occurred!!$RESET - $ITALICSerror #%$RESET', (exception.errno,))
 
 			else:
 				if exception == exceptions.AttributeError:
 					log.execption('Applications error!')
 
 				elif exception == StreamResetError:
-					log.exception('{}Connection was forcefully closed by the remote server!!{}'.format(log.color.WARNING, log.color.ENDC))
+					log.exception('$BOLD$REDConnection was forcefully closed by the remote server!!$RESET')
 					self._authenticate(True)
 
 		def _post(self, path, payload=False):
@@ -343,7 +343,7 @@ class Http:
 					if count > self._max_retransmit_count:
 						self._wait_for_http_response = False
 						self._http_queue.pop()
-						log.debug('{}Reached max retries; Giving up!{}'.format(log.color.FAIL, log.color.ENDC))
+						log.debug('$WARNReached max retries; Giving up!$RESET')
 						return False
 
 				time.sleep(self._back_off_wait(count))

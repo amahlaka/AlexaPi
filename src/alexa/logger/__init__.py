@@ -5,7 +5,7 @@ import types
 import logging
 import traceback
 
-from alexa.logger.colors import *
+from alexa.logger.terminal import *
 
 class _AlexaCustomLogger:
 
@@ -21,7 +21,7 @@ class _AlexaCustomLogger:
 
 		def format_formatter(self, msg, use_color):
 			if use_color:
-				msg = msg.replace("$RESET", color.RESET).replace("$BOLD", color.BOLD)
+				msg = msg.replace("$RESET", terminal.RESET).replace("$BOLD", terminal.font.style.BOLD)
 			else:
 				msg = msg.replace("$RESET", "").replace("$BOLD", "")
 
@@ -36,9 +36,9 @@ class _AlexaCustomLogger:
 			msg = record.msg
 
 			# colorize and format logname
-			if self._use_color and levelname in color.LOG_LEVEL_COLORS:
-				fore_color = 30 + color.LOG_LEVEL_COLORS[levelname]
-				levelname_color = color.COLOR % fore_color + levelname + color.RESET
+			if self._use_color and levelname in terminal.color.LOG_LEVEL_COLORS:
+				fore_color = 30 + terminal.color.LOG_LEVEL_COLORS[levelname]
+				levelname_color = terminal.COLOR_ESC_SEQ % fore_color + levelname + terminal.RESET
 				record.levelname = levelname_color
 
 			# colorize and format message...if msg is a str
@@ -57,18 +57,18 @@ class _AlexaCustomLogger:
 								' ##########################################################$RESET\n\n\n\n\n'
 						self._fmt_modified = True
 
-					for k,v in color.COLORS.items():
-						msg = msg.replace("$" + k, color.COLOR % (v+30)) \
-						.replace("$BG" + k,  color.COLOR % (v+40)) \
-						.replace("$BG-" + k, color.COLOR % (v+40))
+					for k,v in terminal.color.COLORS.items():
+						msg = msg.replace("$" + k, terminal.COLOR_ESC_SEQ % (v+30)) \
+						.replace("$BG" + k,  terminal.COLOR_ESC_SEQ % (v+40)) \
+						.replace("$BG-" + k, terminal.COLOR_ESC_SEQ % (v+40))
 
-					msg = msg.replace("$RESET", color.RESET) \
-					.replace("$BOLD", color.BOLD) \
-					.replace("$ITALICS", color.ITALICS) \
-					.replace("$UNDERLINE", color.UNDERLINE) \
-					.replace("$STRIKETHROUGH", color.STRIKETHROUGH)
+					msg = msg.replace("$RESET", terminal.RESET) \
+					.replace("$BOLD", terminal.font.style.BOLD) \
+					.replace("$ITALICS", terminal.font.style.ITALICS) \
+					.replace("$UNDERLINE", terminal.font.style.UNDERLINE) \
+					.replace("$STRIKETHROUGH", terminal.font.style.STRIKETHROUGH)
 				else:
-					for k,v in color.COLORS.items():
+					for k,v in terminal.color.COLORS.items():
 						msg = msg.replace("$" + k, '') \
 						.replace("$BG" + k,  '') \
 						.replace("$BG-" + k, '')
@@ -81,7 +81,6 @@ class _AlexaCustomLogger:
 					.replace("$RESET", '') \
 					.replace("$$BLANK$$", '$$BLANK$$') \
 					.replace('$$LOG_START$$', '')
-
 
 				record.msg = msg
 
@@ -114,7 +113,7 @@ class _AlexaCustomLogger:
 
 			# create a file handler
 			handler = logging.FileHandler(log_file_location)
-			print 'File logging {}enabled{}: Logging to {}{}{}'.format(color.BOLD, color.RESET, color.ITALICS, log_file_location, color.RESET)
+			print 'File logging {}enabled{}: Logging to {}{}{}'.format(terminal.font.style.BOLD, terminal.RESET, terminal.font.style.ITALICS, log_file_location, terminal.RESET)
 
 		else:
 			handler = logging.StreamHandler(sys.stdout)
@@ -183,7 +182,6 @@ class _AlexaCustomLogger:
 
 	def getLogger(self, name):
 		log = logging.getLogger(name)
-		setattr(log, 'color', color)
 		setattr(log, 'newline', types.MethodType(self._log_newline, log))
 		setattr(log, 'start', types.MethodType(self._log_start, log))
 
