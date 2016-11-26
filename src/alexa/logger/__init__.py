@@ -1,9 +1,8 @@
-#alexa/logger/log.py
+#alexa/logger/__init__.py
 
 import sys
-import types
 import logging
-import traceback #TODO: do I still need?
+import traceback
 
 from alexa.logger.terminal import *
 from alexa.logger.simple_logger_markdown import Markdown
@@ -108,8 +107,7 @@ class _AlexaCustomLogger:
 
 	def getLogger(self, name):
 		log = logging.getLogger(name)
-		setattr(log, 'start', types.MethodType(Markdown.LogFunctions().log_start, log))
-		setattr(log, 'newline', types.MethodType(Markdown().LogFunctions.log_blank_line, log))
+		Markdown.log_hooks(log) # add log.start() and log.blank_line() methods
 
 		def exception_hook(exc_type, exc_value, exc_traceback):
 			log.critical("Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback))

@@ -31,6 +31,11 @@ class Markdown:
 		'failed'	: '{{red}}**%s**{{red}}'
 	}
 
+	class _ESC:
+		SEQ = '\033[%sm'
+		RESET = '\033[0m'
+
+
 	LOG_LEVEL_COLORS = {
 		'WARNING'       : '{{yellow}}%s{{yellow}}',
 		'INFO'          : '**{{blue}}%s{{blue}}**',
@@ -38,11 +43,6 @@ class Markdown:
 		'CRITICAL'      : '**{{red}}%s{{red}}**',
 		'ERROR'         : '**{{white}}%s{{white}}**' #TODO: need to add background color
 	}
-
-	class _ESC:
-		SEQ = '\033[%sm'
-		RESET = '\033[0m'
-
 
 	class LogFunctions:
 		LOG_START = '{{logstart}}'
@@ -235,8 +235,8 @@ class Markdown:
 
 			return self.output
 
-
-
 	def log_hooks(log):
 		setattr(log, 'start', types.MethodType(Markdown.LogFunctions().log_start, log))
-		setattr(log, 'newline', types.MethodType(Markdown().LogFunctions.log_blank_line, log))
+		setattr(log, 'blank_line', types.MethodType(Markdown().LogFunctions.log_blank_line, log))
+
+	log_hooks = staticmethod(log_hooks)
