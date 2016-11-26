@@ -89,7 +89,7 @@ class Http:
 			def addItem(self, item):
 				self._q.appendleft(item)
 				self._item_count =  sum(1 for i in self._q)
-				#log.debug("$BOLD$BLUEAdd to http queue:$RESET %s | Count: %s", item, self._item_count)
+				#log.debug("**{{blue}}Add to http queue:{{blue}}** %s | Count: %s", item, self._item_count)
 
 			def pop(self):
 				current_item = self._q.pop()
@@ -145,7 +145,7 @@ class Http:
 				return True
 
 			except Exception as e:
-				log.debug("Connection $ERRORFailed$RESET - %s" % e)
+				log.debug("Connection {{error}}Failed{{error}} - %s" % e)
 				return False
 
 		def _back_off_wait(self, n):
@@ -227,8 +227,8 @@ class Http:
 				if response:
 					response.close()
 
-				log.exception("{}(): Could not synchronize state - %s".format(currentFuncName, full_url))
-				log.exception("error: %s" % e)
+				log.exception('%s(): Could not synchronize state - %s', currentFuncName, full_url)
+				log.exception('error: %s' % e)
 
 			return False
 
@@ -238,7 +238,7 @@ class Http:
 
 				if http_code >= 200 and http_code < 300:
 					if http_code == 204:
-						#log.debug("Request Response is null $OK(This is OKAY!)$RESET")
+						#log.debug("Request Response is null {{ok}}(This is OKAY!){{ok}}")
 						return [res_type.BLANK]
 
 					return [res_type.DATA, response]
@@ -247,7 +247,7 @@ class Http:
 					response.close()
 					return [res_type.ERROR]
 
-			log.exception('$BOLD$WARNUnknown response:$RESET $ITALICS%s$RESET', response)
+			log.exception('**{{warn}}Unknown response:{{warn}}** *%s*', response)
 			alexa.led.blink_error()
 			alexa.playback.error()
 
@@ -256,18 +256,18 @@ class Http:
 		def _error_session_callback(self, exception):
 			if 'errno' in exception:
 				if exception.errno == 32: #Broken Pipe (Most likely invalid token. Get a new one
-					log.exception('$BOLD$REDAn http error has occurred!!$RESET - $ITALICSerror #%$RESET', (exception.errno,))
+					log.exception('{{error}}An http error has occurred!!{{error}} - *error #s%*', (exception.errno,))
 					self._authenticate(True)
 
 				elif exception.errno < 0: #TODO: A really bad requests error?
-					log.exception('$BOLD$REDAn http error has occurred!!$RESET - $ITALICSerror #%$RESET', (exception.errno,))
+					log.exception('**{{red}}An http error has occurred!!{{red}}** - *error #s%$*', (exception.errno,))
 
 			else:
 				if exception == exceptions.AttributeError:
 					log.execption('Applications error!')
 
 				elif exception == StreamResetError:
-					log.exception('$BOLD$REDConnection was forcefully closed by the remote server!!$RESET')
+					log.exception('**{{red}}Connection was forcefully closed by the remote server!!{{red}}**')
 					self._authenticate(True)
 
 		def _post(self, path, payload=False):
@@ -343,7 +343,7 @@ class Http:
 					if count > self._max_retransmit_count:
 						self._wait_for_http_response = False
 						self._http_queue.pop()
-						log.debug('$WARNReached max retries; Giving up!$RESET')
+						log.debug('{{warn}}Reached max retries; Giving up!{{warn}')
 						return False
 
 				time.sleep(self._back_off_wait(count))

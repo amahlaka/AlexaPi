@@ -54,7 +54,7 @@ class InterfaceManager:
 					j = json.loads(payload.get_payload())
 					log.debug('')
 					log.debug('')
-					log.debug("$BOLD$BG-GREEN$WHITE->$RESET$BLUEJSON String Received:$RESET$ITALICS%s$RESET" % (json.dumps(j),))
+					log.debug('**$BG-GREEN${{white}}->{{white}}**{{blue}}JSON String Received:{{blue}}//%s//', json.dumps(j))
 					log.debug('Processing payload - count: %s', (msg_count - loop_count))
 					log.debug('')
 					log.debug('')
@@ -125,7 +125,7 @@ class InterfaceManager:
 			if directive_method:
 				log.info('')
 				log.info('')
-				log.info('$BLUEDispatching directive(namespace/name):$RESET %s/%s...', namespace, directive_name)
+				log.info('{{blue}}Dispatching directive(namespace/name):{{blue}} %s/%s...', namespace, directive_name)
 				log.info('')
 				alexa.thread_manager.start(directive_method, self.stop, payload)
 				#gThread = threading.Thread(target=directive_method, args=(payload,))
@@ -134,13 +134,13 @@ class InterfaceManager:
 
 		log.info('')
 		log.info('')
-		log.info('$WARNUnknown directive$RESET(namespace/name): %s/%s', namespace, directive_name)
+		log.info('{{warn}}Unknown directive{{warn}}(namespace/name): %s/%s', namespace, directive_name)
 		log.info('')
 
 	def send_event(self, msg_id, path, payload): #Events as sent by an AVS Interface
 		log.debug('')
 		log.debug('')
-		log.debug("$BOLD$BG-GREEN$WHITE<-$RESET$BLUEJSON String Sent: $RESET%s", payload[0][1][1])
+		log.debug("**$BG-GREEN{{white}}<-{{white}}**{{blue}}JSON String Sent: {{blue}}//%s//", payload[0][1][1])
 		log.debug('')
 		log.debug('')
 
@@ -156,7 +156,7 @@ class InterfaceManager:
 			if event_method:
 				log.info('')
 				log.info('')
-				log.info('$BLUEDispatching event(namespace/name):$RESET %s/%s...', namespace, event_name)
+				log.info('{{blue}}Dispatching event(namespace/name):{{blue}} %s/%s...', namespace, event_name)
 				log.info('')
 				response = event_method()
 
@@ -167,5 +167,5 @@ class InterfaceManager:
 
 		log.info('')
 		log.info('')
-		log.info('$WARNUnknown event$RESET(namespace/name):%s/%s', namespace, event_name)
+		log.info('{{warn}}Unknown event{{warn}}(namespace/name):%s/%s', namespace, event_name)
 		log.info('')

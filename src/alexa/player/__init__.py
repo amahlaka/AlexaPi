@@ -105,7 +105,7 @@ class MediaPlayer():
 		def addItem(self, item):
 			self._q.appendleft(item)
 			self._item_count =  sum(1 for i in self._q)
-			log.info('$BLUEAdd to queue:$RESET %s | Items remaining in queue: %s', item, self._item_count)
+			log.info('{{blue}}Add to queue:{{blue}} %s | Items remaining in queue: %s', item, self._item_count)
 
 		def getNextItem(self):
 			if self._q:
@@ -213,7 +213,7 @@ class MediaPlayer():
 					else:
 						self.avs_playback.data['vlc_player'].audio_set_volume(override_volume)
 
-					log.info('$BOLD$BLUEPlay retrieved media:$RESET %s | Items remaining in queue: %s', gstate.current_item, self._queue.getItemCount())
+					log.info('**{{blue}}Play retrieved media:{{blue}}** %s | Items remaining in queue: %s', gstate.current_item, self._queue.getItemCount())
 					self.avs_playback.data['vlc_player'].play()
 					time.sleep(.1) # Allow time for state_callback to run
 

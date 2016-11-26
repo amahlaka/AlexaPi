@@ -1,39 +1,41 @@
 import re
 import types
 
-from alexa.logger.terminal import *
+#from alexa.logger.terminal import *
 
 
 class Markdown:
 	_BLACK, _RED, _GREEN, _YELLOW, _BLUE, _MAGENTA, _CYAN, _WHITE = range(8)
 
 	_FORMATS = {
-		'BOLD': 1,
-		'ITALICS': 3,
-		'UNDERLINE': 4,
-		'REVERSE': 7,
-		'STRIKETHROUGH': 9
+		'BOLD'		: 1,
+		'ITALICS'	: 3,
+		'UNDERLINE'	: 4,
+		'REVERSE'	: 7,
+		'STRIKETHROUGH'	: 9
 	}
 
 	_COLORS = {
-		'BLACK': _BLACK,
-		'RED': _RED,
-		'GREEN': _GREEN,
-		'YELLOW': _YELLOW,
-		'BLUE': _BLUE,
-		'MAGENTA': _MAGENTA,
-		'CYAN': _CYAN,
-		'WHITE': _WHITE
+		'BLACK'		: _BLACK,
+		'RED'		: _RED,
+		'GREEN'		: _GREEN,
+		'YELLOW'	: _YELLOW,
+		'BLUE'		: _BLUE,
+		'MAGENTA'	: _MAGENTA,
+		'CYAN'		: _CYAN,
+		'WHITE'		: _WHITE
 	}
 
 	_CUSTOM = {
 		'ok'		: '{{green}}**%s**{{green}}',
-		'failed'	: '{{red}}**%s**{{red}}'
+		'failed'	: '{{red}}**%s**{{red}}',
+		'warn'		: '{{red}}**%s**{{red}}',
+		'error'		: '{{red}}**%s**{{red}}'
 	}
 
 	class _ESC:
-		SEQ = '\033[%sm'
-		RESET = '\033[0m'
+		SEQ		= '\033[%sm'
+		RESET		= '\033[0m'
 
 
 	LOG_LEVEL_COLORS = {
@@ -146,13 +148,12 @@ class Markdown:
 		colors = ['black', 'red', 'yellow', 'green', 'blue', 'cyan', 'magenta', 'white']
 		formats = ['bold', 'italics', 'reverse', 'underline', 'strikethrough']
 
-		text = re.compile(r'^[\s\S]+?(?=[\\\[_*`~{]| {2,}\n|$)')
-		reverse = re.compile(r'^(`+)\s*([\s\S]*?[^`])\s*\1(?!`)')  # `reverse`
-		italics = re.compile(r'^\*((?:\*\*|[^\*])+?)\*(?!\*)')  # *italics*
-		# italics         = re.compile(r'^\/{2}([\s\S]+?)\/{2}(?!\/)') # //italics//
-		bold = re.compile(r'^\*{2}([\s\S]+?)\*{2}(?!\*)')  # **bold**
-		underline = re.compile(r'^_{2}([\s\S]+?)_{2}(?!_)')  # __underline__
-		strikethrough = re.compile( r'^\~{2}(?=\S)([\s\S]*?\S)\~{2}')  # ~~strikethrough~~
+		text            = re.compile(r'^[\s\S]+?(?=[\[/_*`~{]| {2,}\n|$)')
+		reverse		= re.compile(r'^(`+)\s*([\s\S]*?[^`])\s*\1(?!`)')  # `reverse`
+		italics         = re.compile(r'^\/{2}([\s\S]+?)\/{2}(?!\/)') # //italics//
+		bold		= re.compile(r'^\*{2}([\s\S]+?)\*{2}(?!\*)')  # **bold**
+		underline	= re.compile(r'^_{2}([\s\S]+?)_{2}(?!_)')  # __underline__
+		strikethrough	= re.compile( r'^\~{2}(?=\S)([\s\S]*?\S)\~{2}')  # ~~strikethrough~~
 
 		def __init__(self):
 			self.rules = self._merge_array(self.formats, self.colors)
