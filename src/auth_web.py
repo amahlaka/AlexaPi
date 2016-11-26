@@ -1,18 +1,19 @@
 #! /usr/bin/env python
 
-import yaml
-import cherrypy
 import os
-from cherrypy.process import servers
-import requests
+import yaml
 import json
 import urllib
 import socket
+import logging
+import requests
+import cherrypy
 
-import alexapi.config
+from cherrypy.process import servers
+from alexa.config import config
 
-with open(alexapi.config.filename, 'r') as stream:
-	config = yaml.load(stream)
+cherrypy.log.error_log.propagate = False
+cherrypy.log.access_log.propagate = False
 
 class Start(object):
 	def index(self):
@@ -26,7 +27,7 @@ class Start(object):
 			}
 		})
 		url = "https://www.amazon.com/ap/oa"
-		callback = cherrypy.url()  + "code" 
+		callback = cherrypy.url()  + "code"
 		payload = {"client_id" : config['alexa']['Client_ID'], "scope" : "alexa:all", "scope_data" : sd, "response_type" : "code", "redirect_uri" : callback }
 		req = requests.Request('GET', url, params=payload)
 		p = req.prepare()
@@ -47,11 +48,14 @@ class Start(object):
 	code.exposed = True
 
 cherrypy.config.update({'server.socket_host': '0.0.0.0',})
-cherrypy.config.update({'server.socket_port': int(os.environ.get('PORT', '5050')),})
+cherrypy.config.update({'server.socket_port': int(os.environ.get('PORT', '5000')),})
 cherrypy.config.update({ "environment": "embedded" })
 
 
 ip =[(s.connect(('8.8.8.8', 53)), s.getsockname()[0], s.close()) for s in [socket.socket(socket.AF_INET, socket.SOCK_DGRAM)]][0][1]
-print "Ready goto http://{}:5050 or http://localhost:5050  to begin the auth process".format(ip) 
+
+print "Configure your Amazon Developer Settings here first: https://developer.amazon.com/login.html, then then navigate to the 'Alexa' developer setting console."
+print "Ready goto http://{}:5000 or http://localhost:5000  to begin the auth process".format(ip)
 print "(Press Ctrl-C to exit this script once authorization is complete)".format(ip)
+
 cherrypy.quickstart(Start())

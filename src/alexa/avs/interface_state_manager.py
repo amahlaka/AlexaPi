@@ -1,4 +1,4 @@
-from alexa.thread import thread_manager
+from alexa import thread_manager
 
 class StateManager():
 	def __init__(self):

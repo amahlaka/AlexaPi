@@ -1,28 +1,39 @@
 # Rename this file to config.yaml and fill in the fields
 
+debug:
+        alexa: 'debug'
+        #hpack: 'debug'
+        #hyper: 'debug'
+        #requests: 'debug'
+        colorize: True
+        logFileLocation: '/var/log/Alexa.log' # if using the -l switch, i.e., python main.py -l
 sound:
-  # Name of your microphone/soundcard in arecord -L
-  # you can also try setting it to 'default'
-  device: "plughw:1"
+        # Name of your microphone/soundcard in arecord -L
+        # you can also try setting it to 'default'
+        device: "plughw:0"
 
 # Amazon Alexa settings
 alexa:
-  Client_ID:
-  Client_Secret:
-  ProductID:
-  Security_Profile_Description:
-  Security_Profile_ID:
-  refresh_token:
+        AuthUrl: "https://api.amazon.com"
+        BaseUrl: "https://avs-alexa-na.amazon.com"
+        EventPath: "/events"
+        API_Version: "v20160207"
+        Client_ID: ""
+        Client_Secret: ""
+        ProductID: ""
+        Security_Profile_Description: ""
+        Security_Profile_ID: ""
+        refresh_token: ""
 
 sphinx:
-  trigger_phrase: alexa
+        trigger_phrase: alexa
 
 raspberrypi:
-  # GPIO Pin with button connected
-  button: 18
-  # GPIO Pin for the playback/activity light
-  plb_light: &plb_light 24
-  # GPIO Pin for the recording light
-  rec_light: &rec_light 25
-  # GPIO Pins with LED's connected
-  lights: [*plb_light, *rec_light]
+        # GPIO Pin with button connected
+        button: 18
+        # GPIO Pin for the playback/activity light
+        plb_light: &plb_light 24
+        # GPIO Pin for the recording light
+        rec_light: &rec_light 25
+        # GPIO Pins with LED's connected
+        lights: [*plb_light, *rec_light]

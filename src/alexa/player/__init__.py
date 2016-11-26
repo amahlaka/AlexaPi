@@ -6,7 +6,6 @@ from collections import deque
 
 import alexa
 from alexa.player import tunein
-from alexa.thread import thread_manager
 from alexa.avs.interface_state_manager import StateManager
 
 log = alexa.logger.getLogger(__name__)
@@ -222,7 +221,7 @@ class MediaPlayer():
 						time.sleep(.5) #Prevent 100% CPU untilzation
 						continue
 
-		thread_manager.start(play, self.stop, token, override_volume)
+		alexa.thread_manager.start(play, self.stop, token, override_volume)
 
 	def clear_queue(self, clear_type, callback):
 		self._queue.clear()

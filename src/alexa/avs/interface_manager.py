@@ -7,7 +7,6 @@ import email
 
 import alexa
 from alexa.http import Http
-from alexa.thread import thread_manager
 
 MODULE_ROOT = 'alexa.avs'
 INTERFACE_DIR = 'interface'
@@ -128,7 +127,7 @@ class InterfaceManager:
 				log.info('')
 				log.info('$BLUEDispatching directive(namespace/name):$RESET %s/%s...', namespace, directive_name)
 				log.info('')
-				thread_manager.start(directive_method, self.stop, payload)
+				alexa.thread_manager.start(directive_method, self.stop, payload)
 				#gThread = threading.Thread(target=directive_method, args=(payload,))
 				#gThread.start()
 				return
@@ -148,7 +147,7 @@ class InterfaceManager:
 		response = self._avs_session.post(msg_id, path, payload)
 
 		if response:
-			thread_manager.start(self._directive_deconstructor.processor, self.stop, response)
+			alexa.thread_manager.start(self._directive_deconstructor.processor, self.stop, response)
 
 	def trigger_event(self, namespace, event_name): #Only used by main.py to send a speech event to AVS
 		class_instance = getattr(self, str(namespace), None)
@@ -162,7 +161,7 @@ class InterfaceManager:
 				response = event_method()
 
 				if response:
-					thread_manager.start(self._directive_deconstructor.processor, self.stop, response)
+					alexa.thread_manager.start(self._directive_deconstructor.processor, self.stop, response)
 
 				return
 

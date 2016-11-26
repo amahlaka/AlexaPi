@@ -6,10 +6,11 @@ import optparse
 import tempfile
 
 import RPi.GPIO as GPIO
-from config import config
+
 import logger
-from player import MediaPlayer
-from thread import thread_manager
+from alexa.config_manager import config
+from alexa.player import MediaPlayer
+from alexa.thread_manager import thread_manager
 
 ROOT_DIR = os.path.dirname(os.path.abspath('./src'))
 resources_path = os.path.join(ROOT_DIR, 'resources', '')

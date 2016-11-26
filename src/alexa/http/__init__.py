@@ -141,7 +141,7 @@ class Http:
 			log.info("Checking Internet Connection...")
 			try:
 				self._initialize_new_http_session('https://api.amazon.com/auth/o2/token')
-				log.info("Connection $OKOK$RESET")
+				log.info("Connection {{ok}}OK{{ok}}")
 				return True
 
 			except Exception as e:
