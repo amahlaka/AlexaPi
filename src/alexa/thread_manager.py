@@ -1,4 +1,4 @@
-#alexa/thread.py
+#alexa/thread_manager.py
 
 import threading
 from alexa import logger
@@ -6,9 +6,8 @@ from alexa import logger
 log = logger.getLogger(__name__)
 
 class ThreadManager:
-	__threads = []
 
-	class __Worker(threading.Thread):
+	class _Worker(threading.Thread):
 		def __init__(self, *args):
 			self._args = args
 			threading.Thread.__init__(self)
@@ -19,24 +18,28 @@ class ThreadManager:
 					self.worker()
 				else:
 					self.worker(*self._args)
+
 			except Exception:
 				log.exception("message")
 
+
 	def __init__(self):
-		pass
+		self.threads = []
 
 	def start(self, target, stop, *args):
 		if not target or not stop:
 			raise NotImplementedError("Please provide the 'target' and/or 'stop' arg(s)")
 
-		t = self.__Worker(*args)
+		t = self._Worker(*args)
 		t.worker = target
 		t.thread_stopper = stop
-		self.__threads.append(t)
+		self.threads.append(t)
 		t.start()
 
 	def stop_all(self):
-		for t in self.__threads:
-			t.thread_stopper()
+		#TODO: run periodic clean up of self.threads
+		for t in self.threads:
+			if t.isAlive():
+				t.thread_stopper()
 
 thread_manager = ThreadManager()

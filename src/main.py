@@ -16,7 +16,7 @@ from alexa.avs.interface_manager import InterfaceManager
 import alexa.exit_handler as exit_handler
 
 #Get logging
-log = alexa.logger.getLogger('Alexa.main')
+log = alexa.logger.getLogger('alexa (main)')
 
 #Setup
 recorded = False
@@ -209,9 +209,10 @@ if __name__ == "__main__":
 
 	except:
 		exc_type, exc_value, exc_traceback = sys.exc_info()
-		lines = traceback.format_exception(exc_type, exc_value, exc_traceback)
-		#log.execption(''.join('!! ' + line for line in lines))  # Log it or whatever here
-		print(''.join('!! ' + line for line in lines))  # Log it or whatever here
+		if int(exc_value) > 0:
+			lines = traceback.format_exception(exc_type, exc_value, exc_traceback)
+			print(''.join('!! ' + line for line in lines))  # Log it or whatever here
+			#log.execption(''.join('!! ' + line for line in lines))  # Log it or whatever here
 
 	finally:
 		exit.cleanup()

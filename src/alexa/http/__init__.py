@@ -63,9 +63,9 @@ class Http:
 					exit(r)
 					return
 
-				log.newline()
+				log.blank_line()
 				log.debug('Pinging AVS...')
-				log.newline()
+				log.blank_line()
 
 				r = self._session.get('/ping')
 				exit(r) #TODO: Do I need to close after every ping?

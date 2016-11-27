@@ -171,8 +171,10 @@ class MediaPlayer():
 				continue
 
 	def play_avs_response(self, token, override_volume=0):
+
 		def play(token, override_volume):
 			self.avs_playback.data['caller_name'] = 'play_avs_response'
+			self.avs_playback.data['queue'] = self._queue
 
 			if token:
 				self.avs_playback.data['token'] = token

@@ -4,13 +4,13 @@ import sys
 import logging
 import traceback
 
-from alexa.logger.terminal import *
-from alexa.logger.simple_logger_markdown import Markdown
+from alexa.logger.markdown_color_formatter import MarkdownColorFormatter
+
 
 class _AlexaCustomLogger:
 	class ColorFormatter(logging.Formatter):
 		def __init__(self, use_color=False):
-			self.markdown_formatter = Markdown.Formatter(use_color)
+			self.markdown_formatter = MarkdownColorFormatter.Formatter(use_color)
 			logging.Formatter.__init__(self, self.markdown_formatter.log_format)
 
 		def format(self, record):
@@ -107,7 +107,7 @@ class _AlexaCustomLogger:
 
 	def getLogger(self, name):
 		log = logging.getLogger(name)
-		Markdown.log_hooks(log) # add log.start() and log.blank_line() methods
+		MarkdownColorFormatter.log_hooks(log) # add log.start() and log.blank_line() methods
 
 		def exception_hook(exc_type, exc_value, exc_traceback):
 			log.critical("Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback))

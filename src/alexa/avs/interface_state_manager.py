@@ -1,11 +1,25 @@
-from alexa import thread_manager
+import vlc
+
+import alexa.thread_manager
+from alexa import logger
+
+
+log = logger.getLogger(__name__)
 
 class StateManager():
 	def __init__(self):
 		pass
 
-	def callback(self):
+	def _stop(self):
+		print '<STUB> Stopping State Manager!!!'
+
+	def callback(self, event, playback):
+		#print
+		#print 'self=%s \nevent=%s \nplayback=%s' % (self, event, playback)
+		#print
+
 		def _callback(event, playback):
+			queue = False
 			vlc_state = playback.data['vlc_player'].get_state()
 
 			if 'token' in playback.data:
@@ -13,7 +27,10 @@ class StateManager():
 			else:
 				name = playback.data['caller_name']
 
-			log.debug("{}Media Player State:{} {}/{}".format(bcolors.OKGREEN, bcolors.ENDC, vlc_state, name))
+			if 'queue' in playback.data:
+				queue = playback.data['queue']
+
+			log.debug("{{ok}}Media Player State:{{ok}} %s/%s", vlc_state, name)
 
 			#if playback.data['interface_callback'] is not None: #Do callback with VLC state msg
 			#	playback.data['interface_callback'](gstate.current_state)
@@ -26,9 +43,10 @@ class StateManager():
 					gstate.current_state = StateDiagram.PLAYING
 					self.audio_player_interface.PlaybackStarted()
 
-				if not self._queue.getItemCount() == 0 and 'queue_almost_empty' in playback.data and playback.data['queue_almost_empty'] and playback.data['interface_callback']: #Do callback with msg playback almost empty
-					self.audio_player_interface.PlaybackNearlyFinished()
-					#playback.data['interface_callback'](8)
+				if queue:
+					if not queue.getItemCount() == 0 and 'queue_almost_empty' in playback.data and playback.data['queue_almost_empty'] and playback.data['interface_callback']: #Do callback with msg playback almost empty
+						self.audio_player_interface.PlaybackNearlyFinished()
+						#playback.data['interface_callback'](8)
 
 			elif vlc_state == vlc.State.Paused:	#Paused
 				playback.data['is_playing'] = False
@@ -57,4 +75,4 @@ class StateManager():
 				playback.data['is_playing'] = False
 				playback.data['is_paused'] = False
 
-		thread_manager.start(_callback, self.stop, event, playback)
+		alexa.thread_manager.start(_callback, self._stop, event, playback)
