@@ -5,7 +5,29 @@ import time
 import optparse
 import tempfile
 
-import RPi.GPIO as GPIO
+try:
+    import RPi.GPIO as GPIO
+
+except Exception:
+    class FAKE(object):
+        def __init__(self):
+            self.x = 1 # set some attribute
+
+        def __getattr__(self,attr):
+            try:
+                return super(FAKE, self).__getattr__(attr)
+            except AttributeError:
+                return self.__get_global_handler(attr)
+
+        def __get_global_handler(self, name):
+            handler = self.__global_handler
+            handler.im_func.func_name = name # Change the method's name
+            return handler
+
+        def __global_handler(self, *args, **kwargs):
+            pass
+
+    GPIO = FAKE()
 
 import logger
 from alexa.config_manager import config
@@ -17,8 +39,10 @@ resources_path = os.path.join(ROOT_DIR, 'resources', '')
 tmp_path = os.path.join(tempfile.mkdtemp(prefix='AlexaPi-runtime-'), '')
 
 #Get config
-if config and 'debug' in config and 'alexa' in config['debug']:
-	if config['debug']['alexa']: debug = True
+if 'debug' in config and 'alexa' in config['debug'] and config['debug']['alexa']:
+    debug = True
+else:
+    debug = False
 
 #Get arguments
 parser = optparse.OptionParser()
