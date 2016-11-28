@@ -128,8 +128,6 @@ class InterfaceManager:
 				log.info('{{blue}}Dispatching directive(namespace/name):{{blue}} %s/%s...', namespace, directive_name)
 				log.info('')
 				alexa.thread_manager.start(directive_method, self.stop, payload)
-				#gThread = threading.Thread(target=directive_method, args=(payload,))
-				#gThread.start()
 				return
 
 		log.info('')

@@ -6,30 +6,12 @@ import optparse
 import tempfile
 
 try:
-    import RPi.GPIO as GPIO
+	import RPi.GPIO as GPIO
 
-except Exception:
-    class FAKE(object):
-        def __init__(self):
-            self.x = 1 # set some attribute
+except:
+	from alexa.fake_gpio import GPIO
 
-        def __getattr__(self,attr):
-            try:
-                return super(FAKE, self).__getattr__(attr)
-            except AttributeError:
-                return self.__get_global_handler(attr)
-
-        def __get_global_handler(self, name):
-            handler = self.__global_handler
-            handler.im_func.func_name = name # Change the method's name
-            return handler
-
-        def __global_handler(self, *args, **kwargs):
-            pass
-
-    GPIO = FAKE()
-
-import logger
+import alexa.logger as logger
 import alexa.config_manager as config_manager
 from alexa.player import MediaPlayer
 from alexa.thread_manager import thread_manager

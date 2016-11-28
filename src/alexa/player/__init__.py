@@ -6,7 +6,7 @@ from collections import deque
 
 import alexa
 from alexa.player import tunein
-from alexa.avs.interface_state_manager import StateManager
+from alexa.player.state_manager import StateManager
 
 log = alexa.logger.getLogger(__name__)
 tunein_parser = tunein.TuneIn(5000)
@@ -121,12 +121,10 @@ class MediaPlayer():
 	def __init__(self):
 		self.avs_playback = PlaybackDataContainer(token=None, is_playing=False, is_paused=False, vlc_player=None, interface_callback=True, queue_almost_empty=False)
 		self._state_manager = StateManager()
-		self.audio_player_interface = False
 		self.package = self._MediaPackage()
 		self._settings = self._Settings()
 		self._vlc_instance = vlc.Instance('--aout=alsa') # , '--alsa-audio-device=mono', '--file-logging', '--logfile=vlc-log.txt')
 		self._queue = self._Queue()
-
 
 	def _tuneinplaylist(self, url):
 		global tunein_parser
@@ -139,10 +137,6 @@ class MediaPlayer():
 			return nurl[0]
 
 		return ''
-
-	def bind(self, audio_player_interface):
-		if audio_player_interface:
-			self.audio_player_interface = audio_player_interface
 
 	def play_local(self, file, overRideVolume=0):
 		playback = PlaybackDataContainer(is_playing=False, vlc_player=None, interface_callback=False)
@@ -170,7 +164,7 @@ class MediaPlayer():
 				time.sleep(.1) #Prevent 100% CPU untilzation and adds a slight pause between alexa responses
 				continue
 
-	def play_avs_response(self, token, override_volume=0):
+	def play_avs_response(self, token, interface_callback):
 
 		def play(token, override_volume):
 			self.avs_playback.data['caller_name'] = 'play_avs_response'
@@ -223,7 +217,7 @@ class MediaPlayer():
 						time.sleep(.5) #Prevent 100% CPU untilzation
 						continue
 
-		alexa.thread_manager.start(play, self.stop, token, override_volume)
+		alexa.thread_manager.start(play, self.stop, token, interface_callback)
 
 	def clear_queue(self, clear_type, callback):
 		self._queue.clear()

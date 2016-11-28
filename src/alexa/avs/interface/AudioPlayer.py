@@ -8,7 +8,6 @@ import alexa
 class AudioPlayer:
 
 	def __init__(self, avs_interface):
-		alexa.player.bind(self)
 		self._interface_manager = avs_interface
 		self._token = None
 

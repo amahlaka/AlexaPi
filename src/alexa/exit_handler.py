@@ -17,7 +17,7 @@ class CleanUp:
 
 	def cleanup(self, signal=False, frame=False):
 		if not self.__executed:
-			print "Exiting..."
+			print "\n\nExiting...\n"
 			alexa.thread_manager.stop_all()
 			shutil.rmtree(self._tmp_dir)
 			self.__executed = True

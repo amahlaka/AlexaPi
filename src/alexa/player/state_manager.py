@@ -1,10 +1,52 @@
 import vlc
+import ctypes
 
 import alexa.thread_manager
 from alexa import logger
 
 
 log = logger.getLogger(__name__)
+
+class _Enum(ctypes.c_uint):
+	_enum_names_ = {}
+
+	def __str__(self):
+		n = self._enum_names_.get(self.value, '') or ('FIXME_(%r)' % (self.value,))
+		return '.'.join((self.__class__.__name__, n))
+
+	def __hash__(self):
+		return self.value
+
+	def __repr__(self):
+		return '.'.join((self.__class__.__module__, self.__str__()))
+
+	def __eq__(self, other):
+		return ( (isinstance(other, _Enum) and self.value == other.value) or (isinstance(other, _Ints) and self.value == other) )
+
+	def __ne__(self, other):
+		return not self.__eq__(other)
+
+class Event(_Enum):
+	_enum_names_ = {
+		0: 'NothingSpecial',
+		1: 'Opening',
+		2: 'Buffering',
+		3: 'Playing',
+		4: 'Paused',
+		5: 'Stopped',
+		6: 'Ended',
+		7: 'Error',
+	}
+
+Event.Idle			= Event(0)
+Event.BufferUnderun		= Event(1)
+Event.Playing			= Event(2)
+Event.PlaybackNearlyFinished	= Event(3)
+Event.Finished			= Event(4)
+
+Event.Paused			= Event(5)
+Event.Stopped			= Event(6)
+Event.Error			= Event(7)
 
 class StateManager():
 	def __init__(self):
@@ -14,9 +56,6 @@ class StateManager():
 		print '<STUB> Stopping State Manager!!!'
 
 	def callback(self, event, playback):
-		#print
-		#print 'self=%s \nevent=%s \nplayback=%s' % (self, event, playback)
-		#print
 
 		def _callback(event, playback):
 			queue = False
@@ -40,13 +79,12 @@ class StateManager():
 				playback.data['is_paused'] = False
 
 				if playback.data['interface_callback']:
-					gstate.current_state = StateDiagram.PLAYING
-					self.audio_player_interface.PlaybackStarted()
+					gstate.current_state = State.Playing
+					#self.audio_player_interface.PlaybackStarted()
 
 				if queue:
 					if not queue.getItemCount() == 0 and 'queue_almost_empty' in playback.data and playback.data['queue_almost_empty'] and playback.data['interface_callback']: #Do callback with msg playback almost empty
-						self.audio_player_interface.PlaybackNearlyFinished()
-						#playback.data['interface_callback'](8)
+						State = State.PlaybackNearlyFinished
 
 			elif vlc_state == vlc.State.Paused:	#Paused
 				playback.data['is_playing'] = False

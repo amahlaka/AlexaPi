@@ -282,7 +282,7 @@ class Http:
 				if response:
 					response.close()
 
-				log.exception("{}(): Could not post to: {}".format(currentFuncName, full_url))
+				log.exception("{}(): Could not post to: {}".format(currentFuncName(), full_url))
 				log.exception("error: %s" % e)
 				self._error_callback(e)
 
