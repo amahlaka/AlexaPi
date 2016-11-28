@@ -30,9 +30,13 @@ except Exception:
     GPIO = FAKE()
 
 import logger
-from alexa.config_manager import config
+import alexa.config_manager as config_manager
 from alexa.player import MediaPlayer
 from alexa.thread_manager import thread_manager
+
+
+config = config_manager.config
+set_variable = config_manager.set_variable
 
 ROOT_DIR = os.path.dirname(os.path.abspath('./src'))
 resources_path = os.path.join(ROOT_DIR, 'resources', '')
