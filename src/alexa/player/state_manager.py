@@ -1,52 +1,24 @@
 import vlc
-import ctypes
 
 import alexa.thread_manager
+from alexa.enum import Enum
 from alexa import logger
 
 
 log = logger.getLogger(__name__)
 
-class _Enum(ctypes.c_uint):
-	_enum_names_ = {}
+class Event(Enum): pass
 
-	def __str__(self):
-		n = self._enum_names_.get(self.value, '') or ('FIXME_(%r)' % (self.value,))
-		return '.'.join((self.__class__.__name__, n))
-
-	def __hash__(self):
-		return self.value
-
-	def __repr__(self):
-		return '.'.join((self.__class__.__module__, self.__str__()))
-
-	def __eq__(self, other):
-		return ( (isinstance(other, _Enum) and self.value == other.value) or (isinstance(other, _Ints) and self.value == other) )
-
-	def __ne__(self, other):
-		return not self.__eq__(other)
-
-class Event(_Enum):
-	_enum_names_ = {
-		0: 'NothingSpecial',
-		1: 'Opening',
-		2: 'Buffering',
-		3: 'Playing',
-		4: 'Paused',
-		5: 'Stopped',
-		6: 'Ended',
-		7: 'Error',
-	}
-
-Event.Idle			= Event(0)
-Event.BufferUnderun		= Event(1)
-Event.Playing			= Event(2)
-Event.PlaybackNearlyFinished	= Event(3)
-Event.Finished			= Event(4)
-
-Event.Paused			= Event(5)
-Event.Stopped			= Event(6)
-Event.Error			= Event(7)
+Event({
+	'Idle': 0,
+	'Opening': 1,
+	'Buffering': 2,
+	'Playing': 3,
+	'Paused': 4,
+	'Stopped': 5,
+	'Ended': 6,
+	'Error': 7
+})
 
 class StateManager():
 	def __init__(self):
