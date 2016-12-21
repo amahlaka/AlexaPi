@@ -1,0 +1,3 @@
+[submodule "src/alexa/logger/markdown_color_formatter"]
+	path = src/alexa/logger/markdown_color_formatter
+	url = https://github.com/davidmroth/markdown_color_formatter/
